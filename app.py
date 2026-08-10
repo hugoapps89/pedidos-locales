@@ -2,7 +2,8 @@ import os, sqlite3, uuid
 from functools import wraps
 from pathlib import Path
 from flask import Flask, render_template, request, redirect, url_for, session, flash, abort, jsonify
-from werkzeug.utils import secure_filename, generate_password_hash, check_password_hash
+from werkzeug.utils import secure_filename
+from werkzeug.security import generate_password_hash, check_password_hash
 
 BASE_DIR=Path(__file__).resolve().parent
 DB_PATH=Path(os.environ.get("DATABASE_PATH", str(BASE_DIR/"pedidos_locales.db")))
