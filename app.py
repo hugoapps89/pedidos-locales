@@ -7,6 +7,7 @@ from werkzeug.security import generate_password_hash, check_password_hash
 
 BASE_DIR=Path(__file__).resolve().parent
 DB_PATH=Path(os.environ.get("DATABASE_PATH", str(BASE_DIR/"pedidos_locales.db")))
+DB_PATH.parent.mkdir(parents=True, exist_ok=True)
 UPLOAD_DIR=BASE_DIR/"static"/"uploads"; UPLOAD_DIR.mkdir(parents=True,exist_ok=True)
 app=Flask(__name__)
 app.secret_key=os.environ.get("SECRET_KEY","dev-only-change-this-secret")
@@ -459,8 +460,11 @@ def admin_product_delete(product_id):
     if not p:c.close();abort(404)
     c.execute("DELETE FROM products WHERE id=?",(product_id,));c.commit();c.close();flash("Producto eliminado.","success");return redirect(url_for("admin_products",business_id=p["business_id"]))
 
+# Inicializar la base de datos también cuando Flask
+# es iniciado mediante Gunicorn/Render.
+init_db()
+
 if __name__=="__main__":
-    init_db()
     port=int(os.environ.get("PORT","5000"))
     host=os.environ.get("HOST","127.0.0.1")
     debug=os.environ.get("FLASK_DEBUG","0")=="1"
