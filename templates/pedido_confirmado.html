@@ -1,0 +1,43 @@
+{% extends "base.html" %}
+{% block title %}Pedido #{{ pedido.id }} · Pedidos Locales{% endblock %}
+{% block content %}
+<main class="confirmation">
+<div class="confirmation-card tracking-card">
+<div class="success-icon">✓</div>
+<span class="eyebrow">PEDIDO #{{ pedido.id }}</span>
+<h1 id="trackingTitle">¡Pedido recibido!</h1>
+<p>Tu pedido fue registrado en <strong>{{ pedido.business_name }}</strong>.</p>
+
+<div class="tracking-status">
+  <div class="track-step" data-step="nuevo"><div class="track-dot">✓</div><div><b>Pedido recibido</b><small>Tu pedido llegó correctamente.</small></div></div>
+  <div class="track-line"></div>
+  <div class="track-step" data-step="preparando"><div class="track-dot">👨‍🍳</div><div><b>Preparando</b><small>El negocio está preparando tu pedido.</small></div></div>
+  <div class="track-line"></div>
+  <div class="track-step" data-step="camino"><div class="track-dot">🛵</div><div><b>En camino</b><small>El repartidor lleva tu pedido.</small></div></div>
+  <div class="track-line"></div>
+  <div class="track-step" data-step="entregado"><div class="track-dot">✓</div><div><b>Entregado</b><small>Pedido entregado.</small></div></div>
+</div>
+
+<div class="live-status"><span class="live-dot"></span><span id="liveStatus">Actualizando estado...</span></div>
+
+<div class="confirm-details">
+<div><span>Negocio</span><b>{{ pedido.business_name }}</b></div>
+<div><span>Subtotal productos</span><b>${{ "%.2f"|format(pedido.total - 35) }}</b></div>
+<div><span>Entrega</span><b>$35.00</b></div>
+<div><span>Total</span><b>${{ "%.2f"|format(pedido.total) }}</b></div>
+<div><span>Cliente</span><b>{{ pedido.customer_name }}</b></div>
+<div><span>Forma de pago</span><b>{{ pedido.payment_method }}</b></div>
+</div>
+
+<div class="confirm-items"><h3>Resumen del pedido</h3>
+{% for i in items %}<div><span>{{ i.quantity }} × {{ i.product_name }}</span><strong>${{ "%.2f"|format(i.subtotal) }}</strong></div>{% endfor %}
+</div>
+
+<a class="btn primary full" href="{{ url_for('inicio') }}">Volver a negocios</a>
+</div>
+</main>
+<script>
+window.ORDER_ID={{ pedido.id|int }};
+</script>
+<script src="{{ url_for('static',filename='js/tracking.js') }}"></script>
+{% endblock %}

@@ -1,0 +1,14 @@
+{% extends "base.html" %}
+{% block title %}{{ 'Editar' if producto else 'Nuevo' }} producto{% endblock %}
+{% block content %}
+<main class="admin-main narrow"><a class="back-link" href="{{ url_for('admin_products',business_id=negocio.id) }}">← Productos de {{ negocio.name }}</a><div class="form-header"><span class="eyebrow">PRODUCTO</span><h1>{{ 'Editar producto' if producto else 'Crear producto' }}</h1><p>Actualiza el producto sin tocar el código.</p></div>
+<form class="admin-form" method="post" enctype="multipart/form-data"><div class="form-grid">
+<label>Nombre *<input name="name" required value="{{ producto.name if producto else '' }}" placeholder="Ej. Taco al Pastor"></label>
+<label>Precio *<input name="price" type="number" step="0.01" min="0" required value="{{ producto.price if producto else '' }}" placeholder="18.00"></label>
+<label>Categoría<input name="category" value="{{ producto.category if producto else 'General' }}" placeholder="Tacos"></label>
+<label>Fotografía<input name="image" type="file" accept=".png,.jpg,.jpeg,.webp,.gif"></label></div>
+<label>Descripción<textarea name="description" rows="3">{{ producto.description if producto else '' }}</textarea></label>
+{% if producto and producto.image %}<img class="form-preview" src="{{ url_for('static',filename='uploads/'+producto.image) }}" alt="Imagen actual">{% endif %}
+<label class="check"><input name="active" type="checkbox" {% if not producto or producto.active %}checked{% endif %}> Producto visible en la tienda</label>
+<div class="form-actions"><a class="btn ghost" href="{{ url_for('admin_products',business_id=negocio.id) }}">Cancelar</a><button class="btn primary">Guardar producto</button></div></form></main>
+{% endblock %}

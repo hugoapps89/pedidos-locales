@@ -1,0 +1,19 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>{% block title %}Pedidos Locales{% endblock %}</title>
+<link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+</head>
+<body>
+<header class="topbar">
+<a class="brand" href="{{ url_for('inicio') }}"><span class="brand-icon">🛍️</span><span><strong>Pedidos</strong> <b>Locales</b><small>Apoya lo local</small></span></a>
+<nav><a href="{{ url_for('inicio') }}">Inicio</a><a href="{{ url_for('inicio') }}#negocios">Negocios</a>{% if admin_logged %}<a href="{{ url_for('admin_orders') }}">Pedidos</a><a href="{{ url_for('admin_couriers') }}">Repartidores</a><a href="{{ url_for('admin_dashboard') }}">Administrador</a><a href="{{ url_for('admin_logout') }}">Salir</a>{% endif %}</nav>
+<div class="cart-mini">🛒 <span id="cartCount">0</span></div>
+</header>
+{% with messages = get_flashed_messages(with_categories=true) %}{% if messages %}<div class="flash-wrap">{% for category,message in messages %}<div class="flash {{ category }}">{{ message }}</div>{% endfor %}</div>{% endif %}{% endwith %}
+{% block content %}{% endblock %}
+<footer>Pedidos Locales · Flask + SQLite</footer>
+<script src="{{ url_for('static', filename='js/app.js') }}"></script>
+</body>
+</html>

@@ -1,0 +1,14 @@
+{% extends "base.html" %}
+{% block title %}Nuevo repartidor{% endblock %}
+{% block content %}
+<main class="admin-main narrow">
+<a class="back-link" href="{{ url_for('admin_couriers') }}">← Repartidores</a>
+<div class="form-header"><span class="eyebrow">REPARTIDOR</span><h1>Nuevo repartidor</h1><p>Crea el acceso para que pueda gestionar sus entregas.</p></div>
+<form class="admin-form" method="post">
+<label>Nombre completo *<input name="name" required placeholder="Ej. Carlos Pérez"></label>
+<label>Teléfono *<input name="phone" required placeholder="9991234567"></label>
+<div class="form-grid"><label>Usuario *<input name="username" required placeholder="carlos"></label><label>Contraseña *<input name="password" type="password" required placeholder="••••••"></label></div>
+<div class="form-actions"><a class="btn ghost" href="{{ url_for('admin_couriers') }}">Cancelar</a><button class="btn primary">Crear repartidor</button></div>
+</form>
+</main>
+{% endblock %}

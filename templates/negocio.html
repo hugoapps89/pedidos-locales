@@ -1,0 +1,57 @@
+{% extends "base.html" %}
+{% block title %}{{ negocio.name }} · Pedidos Locales{% endblock %}
+{% block content %}
+<main>
+<section class="store-hero {% if negocio.image %}has-image{% else %}green{% endif %}" {% if negocio.image %}style="background-image:linear-gradient(90deg,rgba(0,0,0,.78),rgba(0,0,0,.2)),url('{{ url_for('static',filename='uploads/'+negocio.image) }}')"{% endif %}>
+<div class="store-icon">{{ '🌮' if negocio.category == 'Comida' else '✏️' }}</div>
+<div><span class="eyebrow light">{{ negocio.category.upper() }}</span><h1>{{ negocio.name }}</h1><p>{{ negocio.description }}</p><div class="store-meta">★ {{ "%.1f"|format(negocio.rating) }} · ⏱ {{ negocio.delivery_time }} · {{ negocio.address or 'Mérida, Yucatán' }}</div></div>
+</section>
+
+<section class="store-layout">
+<div><div class="section-title"><div><span class="line"></span><h2>Productos</h2></div></div>
+<div class="products-grid">
+{% for p in productos %}
+<article class="product-card">
+{% if p.image %}<img class="product-image real" src="{{ url_for('static',filename='uploads/'+p.image) }}" alt="{{ p.name }}">{% else %}<div class="product-image green">{{ '🌮' if negocio.category == 'Comida' else '📚' }}</div>{% endif %}
+<div class="product-body"><span class="product-category">{{ p.category }}</span><h3>{{ p.name }}</h3><p>{{ p.description }}</p><div class="product-bottom"><strong>${{ "%.2f"|format(p.price) }}</strong><button class="btn outline add-product" data-id="{{ p.id }}" data-name="{{ p.name }}" data-price="{{ p.price }}">＋ Agregar</button></div></div>
+</article>
+{% else %}<p>Este negocio todavía no tiene productos activos.</p>{% endfor %}
+</div></div>
+
+<aside class="order-panel">
+<div class="order-head"><h2>Tu pedido</h2><span id="cartBadge">0</span></div>
+<div id="cartItems" class="cart-items"><p class="empty">Aún no agregas productos.</p></div>
+<div class="price-breakdown"><div><span>Productos</span><b id="cartSubtotal">$0.00</b></div><div><span>Entrega</span><b>$35.00</b></div></div>
+<div class="total-row"><span>Total</span><strong id="cartTotal">$0.00</strong></div>
+<button id="checkoutBtn" class="btn whatsapp" disabled>🛒 Continuar pedido</button>
+<div class="secure">🔒 <span><b>Pedido seguro</b><small>Confirma tus datos antes de enviarlo.</small></span></div>
+</aside>
+</section>
+</main>
+
+<div id="checkoutModal" class="modal hidden">
+<div class="modal-card">
+<button class="modal-close" id="closeCheckout">×</button>
+<span class="eyebrow">CONFIRMAR PEDIDO</span><h2>¿Dónde te entregamos?</h2>
+<p class="modal-sub">Completa tus datos para registrar el pedido.</p>
+<form id="checkoutForm">
+<label>Nombre<input name="name" required placeholder="Tu nombre"></label>
+<label>Teléfono / WhatsApp<input name="phone" required placeholder="9991234567" inputmode="tel"></label>
+<label>Dirección de entrega<textarea name="address" required rows="2" placeholder="Calle, número, fraccionamiento..."></textarea></label>
+<label>Forma de pago<select name="payment_method"><option>Efectivo</option><option>Transferencia</option><option>Tarjeta al entregar</option></select></label>
+<label>Notas <span class="optional">(opcional)</span><textarea name="notes" rows="2" placeholder="Referencias, indicaciones..."></textarea></label>
+<div class="checkout-breakdown"><div><span>Productos</span><b id="checkoutSubtotal">$0.00</b></div><div><span>Entrega</span><b>$35.00</b></div><div class="checkout-total"><span>Total</span><strong id="checkoutTotal">$0.00</strong></div></div>
+<button class="btn primary full" type="submit">✓ Confirmar pedido</button>
+<div id="checkoutError" class="checkout-error"></div>
+</form>
+</div>
+</div>
+
+<script>
+window.NEGOCIO = {
+  id: {{ negocio["id"]|int }},
+  name: {{ negocio["name"]|tojson }},
+  phone: {{ negocio["phone"]|tojson }}
+};
+</script>
+{% endblock %}

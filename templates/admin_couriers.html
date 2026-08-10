@@ -1,0 +1,16 @@
+{% extends "base.html" %}
+{% block title %}Repartidores · Administrador{% endblock %}
+{% block content %}
+<main class="admin-main">
+<div class="admin-header"><div><a class="back-link" href="{{ url_for('admin_dashboard') }}">← Administrador</a><h1>Repartidores</h1><p>Administra las personas que realizarán las entregas.</p></div><a class="btn primary" href="{{ url_for('admin_courier_new') }}">＋ Nuevo repartidor</a></div>
+<div class="courier-grid">
+{% for r in repartidores %}
+<article class="courier-card">
+<div class="courier-avatar">🛵</div><div class="courier-main"><div class="admin-title-row"><h3>{{ r.name }}</h3><span class="status {{ 'on' if r.active else 'off' }}">{{ 'Activo' if r.active else 'Inactivo' }}</span></div><p>📞 {{ r.phone }} · Usuario: <b>{{ r.username }}</b></p>
+<form method="post" action="{{ url_for('admin_courier_toggle',courier_id=r.id) }}"><button class="btn {{ 'danger' if r.active else 'outline' }}">{{ 'Desactivar' if r.active else 'Activar' }}</button></form>
+</div></article>
+{% else %}<div class="empty-box">No hay repartidores.</div>{% endfor %}
+</div>
+<div class="info-note">🔐 Para esta versión, las credenciales se administran desde este panel. Antes de publicar en Internet recomendamos cambiar el sistema a contraseñas cifradas.</div>
+</main>
+{% endblock %}

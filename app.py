@@ -1,0 +1,466 @@
+import os, sqlite3, uuid
+from functools import wraps
+from pathlib import Path
+from flask import Flask, render_template, request, redirect, url_for, session, flash, abort, jsonify
+from werkzeug.utils import secure_filename, generate_password_hash, check_password_hash
+
+BASE_DIR=Path(__file__).resolve().parent
+DB_PATH=Path(os.environ.get("DATABASE_PATH", str(BASE_DIR/"pedidos_locales.db")))
+UPLOAD_DIR=BASE_DIR/"static"/"uploads"; UPLOAD_DIR.mkdir(parents=True,exist_ok=True)
+app=Flask(__name__)
+app.secret_key=os.environ.get("SECRET_KEY","dev-only-change-this-secret")
+app.config["MAX_CONTENT_LENGTH"]=5*1024*1024
+ALLOWED={"png","jpg","jpeg","webp","gif"}
+ADMIN_USER=os.environ.get("ADMIN_USER","admin"); ADMIN_PASSWORD=os.environ.get("ADMIN_PASSWORD","admin1234")
+IS_PRODUCTION=os.environ.get("FLASK_ENV","").lower()=="production"
+STATUSES={"nuevo":"🆕 Nuevo","preparando":"👨‍🍳 Preparando","camino":"🛵 En camino","entregado":"✅ Entregado","cancelado":"❌ Cancelado"}
+DELIVERY_FEE=35.00
+
+def db():
+    c=sqlite3.connect(DB_PATH); c.row_factory=sqlite3.Row; c.execute("PRAGMA foreign_keys=ON"); return c
+
+def init_db():
+    c=db()
+    c.executescript("""
+    CREATE TABLE IF NOT EXISTS businesses(id INTEGER PRIMARY KEY AUTOINCREMENT,name TEXT NOT NULL,category TEXT NOT NULL,description TEXT DEFAULT '',rating REAL DEFAULT 5,delivery_time TEXT DEFAULT '20-30 min',phone TEXT DEFAULT '',address TEXT DEFAULT '',featured INTEGER DEFAULT 0,image TEXT DEFAULT '',created_at TEXT DEFAULT CURRENT_TIMESTAMP);
+    CREATE TABLE IF NOT EXISTS products(id INTEGER PRIMARY KEY AUTOINCREMENT,business_id INTEGER NOT NULL,name TEXT NOT NULL,description TEXT DEFAULT '',price REAL NOT NULL DEFAULT 0,category TEXT DEFAULT 'General',image TEXT DEFAULT '',active INTEGER DEFAULT 1,created_at TEXT DEFAULT CURRENT_TIMESTAMP,FOREIGN KEY(business_id) REFERENCES businesses(id) ON DELETE CASCADE);
+    CREATE TABLE IF NOT EXISTS orders(id INTEGER PRIMARY KEY AUTOINCREMENT,business_id INTEGER NOT NULL,customer_name TEXT NOT NULL,customer_phone TEXT NOT NULL,customer_address TEXT NOT NULL,notes TEXT DEFAULT '',payment_method TEXT DEFAULT 'Efectivo',total REAL NOT NULL DEFAULT 0,status TEXT NOT NULL DEFAULT 'nuevo',created_at TEXT DEFAULT CURRENT_TIMESTAMP,FOREIGN KEY(business_id) REFERENCES businesses(id) ON DELETE CASCADE);
+    CREATE TABLE IF NOT EXISTS order_items(id INTEGER PRIMARY KEY AUTOINCREMENT,order_id INTEGER NOT NULL,product_id INTEGER,product_name TEXT NOT NULL,price REAL NOT NULL,quantity INTEGER NOT NULL,subtotal REAL NOT NULL,FOREIGN KEY(order_id) REFERENCES orders(id) ON DELETE CASCADE);
+    CREATE TABLE IF NOT EXISTS couriers(
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        name TEXT NOT NULL,
+        phone TEXT NOT NULL,
+        username TEXT NOT NULL UNIQUE,
+        password TEXT NOT NULL,
+        active INTEGER DEFAULT 1,
+        created_at TEXT DEFAULT CURRENT_TIMESTAMP
+    );
+    """)
+    # Upgrade an existing V3 database without deleting existing orders.
+    order_columns = {row["name"] for row in c.execute("PRAGMA table_info(orders)").fetchall()}
+    if "courier_id" not in order_columns:
+        c.execute("ALTER TABLE orders ADD COLUMN courier_id INTEGER")
+    if "picked_up_at" not in order_columns:
+        c.execute("ALTER TABLE orders ADD COLUMN picked_up_at TEXT")
+    if "delivered_at" not in order_columns:
+        c.execute("ALTER TABLE orders ADD COLUMN delivered_at TEXT")
+
+    if c.execute("SELECT COUNT(*) c FROM businesses").fetchone()["c"]==0:
+        c.execute("INSERT INTO businesses(name,category,description,rating,delivery_time,address,featured) VALUES(?,?,?,?,?,?,1)",("Taquería El Sabor","Comida","Tacos, tortas y bebidas",4.8,"20-30 min","Mérida, Yucatán"))
+        b1=c.execute("SELECT last_insert_rowid()").fetchone()[0]
+        c.execute("INSERT INTO businesses(name,category,description,rating,delivery_time,address,featured) VALUES(?,?,?,?,?,?,1)",("Papelería La Estrella","Papelería","Útiles escolares, copias e impresiones",4.7,"15-25 min","Mérida, Yucatán"))
+        b2=c.execute("SELECT last_insert_rowid()").fetchone()[0]
+        ps=[(b1,"Taco al Pastor","Carne al pastor con cebolla, cilantro y piña.",18,"Tacos"),(b1,"Taco de Bistec","Bistec con cebolla, cilantro y salsa.",20,"Tacos"),(b1,"Torta de Milanesa","Milanesa con frijoles y verduras.",45,"Tortas"),(b1,"Agua de Jamaica","Agua fresca natural.",25,"Bebidas"),(b2,"Cuaderno Profesional","100 hojas, cuadros.",28,"Útiles"),(b2,"Lápiz #2","Lápiz escolar.",6,"Escritura"),(b2,"Bolígrafo Azul","Tinta azul.",7,"Escritura"),(b2,"Resaltador","Varios colores.",12,"Escritura"),(b2,"Marcadores","Paquete de 12.",45,"Papelería"),(b2,"Pegamento en Barra","Pegamento escolar.",18,"Papelería"),(b2,"Hojas Blancas","Paquete de 100.",55,"Papelería"),(b2,"Impresión B/N","Tamaño carta.",2,"Impresiones")]
+        c.executemany("INSERT INTO products(business_id,name,description,price,category) VALUES(?,?,?,?,?)",ps)
+    if c.execute("SELECT COUNT(*) c FROM couriers").fetchone()["c"] == 0:
+        c.executemany(
+            "INSERT INTO couriers(name,phone,username,password) VALUES(?,?,?,?)",
+            [
+                ("Carlos Repartidor", "9990000001", "carlos", generate_password_hash("1234")),
+                ("Ana Repartidora", "9990000002", "ana", generate_password_hash("1234")),
+            ],
+        )
+    if c.execute("SELECT COUNT(*) c FROM couriers").fetchone()["c"] == 0:
+        c.executemany(
+            "INSERT INTO couriers(name,phone,username,password) VALUES(?,?,?,?)",
+            [
+                ("Carlos Repartidor", "9990000001", "carlos", generate_password_hash("1234")),
+                ("Ana Repartidora", "9990000002", "ana", generate_password_hash("1234")),
+            ],
+        )
+    c.commit(); c.close()
+
+def auth(f):
+    @wraps(f)
+    def w(*a,**k):
+        if not session.get("admin_logged"): return redirect(url_for("admin_login",next=request.path))
+        return f(*a,**k)
+    return w
+
+def save_image(file):
+    if not file or not file.filename or "." not in file.filename: return ""
+    ext=file.filename.rsplit(".",1)[1].lower()
+    if ext not in ALLOWED:return ""
+    original=secure_filename(file.filename); stem,_=os.path.splitext(original)
+    name=f"{stem}_{uuid.uuid4().hex[:8]}.{ext}"; file.save(UPLOAD_DIR/name); return name
+
+@app.context_processor
+def helpers():
+    return {
+        "admin_logged": session.get("admin_logged", False),
+        "courier_logged": session.get("courier_logged", False),
+        "courier_name": session.get("courier_name", ""),
+        "statuses": STATUSES
+    }
+
+@app.route("/")
+def inicio():
+    c=db(); n=c.execute("SELECT b.*,COUNT(p.id) product_count FROM businesses b LEFT JOIN products p ON p.business_id=b.id AND p.active=1 GROUP BY b.id ORDER BY b.featured DESC,b.name").fetchall(); c.close()
+    return render_template("index.html",negocios=n)
+
+@app.route("/negocio/<int:negocio_id>")
+def negocio(negocio_id):
+    c=db(); n=c.execute("SELECT * FROM businesses WHERE id=?",(negocio_id,)).fetchone()
+    if not n:c.close();abort(404)
+    p=c.execute("SELECT * FROM products WHERE business_id=? AND active=1 ORDER BY category,name",(negocio_id,)).fetchall(); c.close()
+    return render_template("negocio.html",negocio=dict(n),productos=p)
+
+@app.post("/pedido/crear")
+def crear_pedido():
+    data=request.get_json(silent=True) or {}; customer=data.get("customer") or {}; items=data.get("items") or []
+    try: bid=int(data.get("business_id"))
+    except: return jsonify(ok=False,error="Negocio inválido."),400
+    name=str(customer.get("name","")).strip(); phone=str(customer.get("phone","")).strip(); address=str(customer.get("address","")).strip(); notes=str(customer.get("notes","")).strip(); payment=str(customer.get("payment_method","Efectivo")).strip()
+    if not name or not phone or not address or not items:return jsonify(ok=False,error="Completa tus datos y agrega al menos un producto."),400
+    c=db(); business=c.execute("SELECT * FROM businesses WHERE id=?",(bid,)).fetchone()
+    if not business:c.close();return jsonify(ok=False,error="Negocio no encontrado."),404
+    clean=[]; total=0
+    for x in items:
+        try: pid=int(x.get("id")); qty=int(x.get("qty"))
+        except: continue
+        if qty<1 or qty>99:continue
+        p=c.execute("SELECT id,name,price FROM products WHERE id=? AND business_id=? AND active=1",(pid,bid)).fetchone()
+        if not p:continue
+        sub=float(p["price"])*qty; total+=sub; clean.append((p["id"],p["name"],float(p["price"]),qty,sub))
+    if not clean:c.close();return jsonify(ok=False,error="No hay productos válidos."),400
+    delivery_fee=DELIVERY_FEE
+    grand_total=total+delivery_fee
+    cur=c.execute("INSERT INTO orders(business_id,customer_name,customer_phone,customer_address,notes,payment_method,total,status) VALUES(?,?,?,?,?,?,?,'nuevo')",(bid,name,phone,address,notes,payment,grand_total))
+    oid=cur.lastrowid
+    c.executemany("INSERT INTO order_items(order_id,product_id,product_name,price,quantity,subtotal) VALUES(?,?,?,?,?,?)",[(oid,*x) for x in clean])
+    c.commit();c.close();return jsonify(ok=True,order_id=oid,subtotal=total,delivery_fee=delivery_fee,total=grand_total)
+
+@app.route("/pedido/<int:order_id>/estado")
+def pedido_estado(order_id):
+    c = db()
+    o = c.execute("""
+        SELECT o.id,o.status,o.total,o.created_at,o.picked_up_at,o.delivered_at,
+               b.name business_name
+        FROM orders o
+        JOIN businesses b ON b.id=o.business_id
+        WHERE o.id=?
+    """,(order_id,)).fetchone()
+    c.close()
+    if not o:
+        return jsonify(ok=False,error="Pedido no encontrado."),404
+    return jsonify(ok=True, pedido={
+        "id": o["id"],
+        "status": o["status"],
+        "total": float(o["total"]),
+        "business_name": o["business_name"],
+        "created_at": o["created_at"],
+        "picked_up_at": o["picked_up_at"],
+        "delivered_at": o["delivered_at"]
+    })
+
+@app.route("/pedido/<int:order_id>/confirmado")
+def confirmado(order_id):
+    c=db(); o=c.execute("SELECT o.*,b.name business_name FROM orders o JOIN businesses b ON b.id=o.business_id WHERE o.id=?",(order_id,)).fetchone()
+    if not o:c.close();abort(404)
+    items=c.execute("SELECT * FROM order_items WHERE order_id=?",(order_id,)).fetchall();c.close()
+    return render_template("pedido_confirmado.html",pedido=o,items=items)
+
+@app.route("/admin/login",methods=["GET","POST"])
+def admin_login():
+    if session.get("admin_logged"):return redirect(url_for("admin_dashboard"))
+    if request.method=="POST":
+        if request.form.get("username")==ADMIN_USER and request.form.get("password")==ADMIN_PASSWORD:
+            session["admin_logged"]=True;return redirect(request.args.get("next") or url_for("admin_dashboard"))
+        flash("Usuario o contraseña incorrectos.","error")
+    return render_template("admin_login.html")
+
+@app.route("/admin/logout")
+def admin_logout():session.clear();return redirect(url_for("inicio"))
+
+@app.route("/admin")
+@auth
+def admin_dashboard():
+    c=db(); negocios=c.execute("SELECT b.*,COUNT(p.id) product_count FROM businesses b LEFT JOIN products p ON p.business_id=b.id GROUP BY b.id ORDER BY b.featured DESC,b.name").fetchall()
+    totals={"businesses":c.execute("SELECT COUNT(*) c FROM businesses").fetchone()["c"],"products":c.execute("SELECT COUNT(*) c FROM products").fetchone()["c"],"featured":c.execute("SELECT COUNT(*) c FROM businesses WHERE featured=1").fetchone()["c"],"orders":c.execute("SELECT COUNT(*) c FROM orders").fetchone()["c"],
+        "new_orders":c.execute("SELECT COUNT(*) c FROM orders WHERE status='nuevo'").fetchone()["c"],
+        "couriers":c.execute("SELECT COUNT(*) c FROM couriers WHERE active=1").fetchone()["c"]}
+    recent=c.execute("""SELECT o.*,b.name business_name,c.name courier_name
+        FROM orders o JOIN businesses b ON b.id=o.business_id
+        LEFT JOIN couriers c ON c.id=o.courier_id
+        ORDER BY o.id DESC LIMIT 8""").fetchall();c.close()
+    return render_template("admin_dashboard.html",negocios=negocios,totals=totals,recent_orders=recent)
+
+@app.route("/admin/pedidos")
+@auth
+def admin_orders():
+    s=request.args.get("status","");c=db()
+    if s in STATUSES:o=c.execute("SELECT o.*,b.name business_name FROM orders o JOIN businesses b ON b.id=o.business_id WHERE o.status=? ORDER BY o.id DESC",(s,)).fetchall()
+    else:o=c.execute("SELECT o.*,b.name business_name FROM orders o JOIN businesses b ON b.id=o.business_id ORDER BY o.id DESC").fetchall()
+    c.close();return render_template("admin_orders.html",pedidos=o,selected_status=s)
+
+@app.route("/admin/pedidos/<int:order_id>")
+@auth
+def admin_order_detail(order_id):
+    c=db();o=c.execute("""SELECT o.*,b.name business_name,b.phone business_phone,c.name courier_name,c.phone courier_phone
+        FROM orders o JOIN businesses b ON b.id=o.business_id
+        LEFT JOIN couriers c ON c.id=o.courier_id
+        WHERE o.id=?""",(order_id,)).fetchone()
+    if not o:c.close();abort(404)
+    items=c.execute("SELECT * FROM order_items WHERE order_id=?",(order_id,)).fetchall()
+    repartidores=c.execute("SELECT * FROM couriers WHERE active=1 ORDER BY name").fetchall()
+    c.close()
+    return render_template("admin_order_detail.html",pedido=o,items=items,repartidores=repartidores)
+
+@app.post("/admin/pedidos/<int:order_id>/estado")
+@auth
+def admin_order_status(order_id):
+    s=request.form.get("status","")
+    if s not in STATUSES:flash("Estado inválido.","error");return redirect(url_for("admin_order_detail",order_id=order_id))
+    from datetime import datetime
+    now=datetime.now().isoformat(timespec="seconds")
+    c=db()
+    if s=="camino":
+        c.execute("UPDATE orders SET status=?,picked_up_at=COALESCE(picked_up_at,?) WHERE id=?",(s,now,order_id))
+    elif s=="entregado":
+        c.execute("UPDATE orders SET status=?,delivered_at=COALESCE(delivered_at,?) WHERE id=?",(s,now,order_id))
+    else:
+        c.execute("UPDATE orders SET status=? WHERE id=?",(s,order_id))
+    c.commit();c.close();flash("Estado actualizado.","success");return redirect(url_for("admin_order_detail",order_id=order_id))
+
+@app.post("/admin/pedidos/<int:order_id>/eliminar")
+@auth
+def admin_order_delete(order_id):
+    c=db();c.execute("DELETE FROM orders WHERE id=?",(order_id,));c.commit();c.close();flash("Pedido eliminado.","success");return redirect(url_for("admin_orders"))
+
+
+# ---------------- COURIERS ----------------
+
+@app.route("/admin/repartidores")
+@auth
+def admin_couriers():
+    c=db()
+    couriers=c.execute("SELECT * FROM couriers ORDER BY active DESC,name").fetchall()
+    c.close()
+    return render_template("admin_couriers.html", repartidores=couriers)
+
+@app.route("/admin/repartidores/nuevo", methods=["GET","POST"])
+@auth
+def admin_courier_new():
+    if request.method=="POST":
+        name=request.form.get("name","").strip()
+        phone=request.form.get("phone","").strip()
+        username=request.form.get("username","").strip().lower()
+        password=request.form.get("password","").strip()
+        if not name or not phone or not username or not password:
+            flash("Completa todos los campos.","error")
+            return render_template("admin_courier_form.html",repartidor=None)
+        c=db()
+        try:
+            c.execute("INSERT INTO couriers(name,phone,username,password) VALUES(?,?,?,?)",(name,phone,username,generate_password_hash(password)))
+            c.commit()
+        except sqlite3.IntegrityError:
+            c.close()
+            flash("Ese usuario ya existe.","error")
+            return render_template("admin_courier_form.html",repartidor=None)
+        c.close()
+        flash("Repartidor creado.","success")
+        return redirect(url_for("admin_couriers"))
+    return render_template("admin_courier_form.html",repartidor=None)
+
+@app.post("/admin/repartidores/<int:courier_id>/toggle")
+@auth
+def admin_courier_toggle(courier_id):
+    c=db()
+    row=c.execute("SELECT active FROM couriers WHERE id=?",(courier_id,)).fetchone()
+    if row:
+        c.execute("UPDATE couriers SET active=? WHERE id=?",(0 if row["active"] else 1,courier_id))
+        c.commit()
+    c.close()
+    return redirect(url_for("admin_couriers"))
+
+@app.post("/admin/pedidos/<int:order_id>/asignar")
+@auth
+def admin_assign_courier(order_id):
+    courier_id=request.form.get("courier_id")
+    c=db()
+    if courier_id:
+        courier=c.execute("SELECT * FROM couriers WHERE id=? AND active=1",(courier_id,)).fetchone()
+        if not courier:
+            c.close(); flash("Repartidor inválido.","error")
+            return redirect(url_for("admin_order_detail",order_id=order_id))
+        c.execute("UPDATE orders SET courier_id=? WHERE id=?",(courier_id,order_id))
+        c.commit()
+        flash(f"Pedido asignado a {courier['name']}.","success")
+    else:
+        c.execute("UPDATE orders SET courier_id=NULL WHERE id=?",(order_id,))
+        c.commit()
+        flash("Pedido sin repartidor asignado.","success")
+    c.close()
+    return redirect(url_for("admin_order_detail",order_id=order_id))
+
+# ---------------- COURIER APP ----------------
+
+def courier_auth(f):
+    @wraps(f)
+    def w(*a,**k):
+        if not session.get("courier_logged"):
+            return redirect(url_for("courier_login",next=request.path))
+        return f(*a,**k)
+    return w
+
+@app.route("/repartidor/login", methods=["GET","POST"])
+def courier_login():
+    if session.get("courier_logged"):
+        return redirect(url_for("courier_dashboard"))
+    if request.method=="POST":
+        username=request.form.get("username","").strip().lower()
+        password=request.form.get("password","").strip()
+        c=db()
+        courier=c.execute("SELECT * FROM couriers WHERE username=? AND active=1",(username,)).fetchone()
+        valid=courier is not None and check_password_hash(courier["password"],password)
+        c.close()
+        if valid:
+            session["courier_logged"]=True
+            session["courier_id"]=courier["id"]
+            session["courier_name"]=courier["name"]
+            return redirect(request.args.get("next") or url_for("courier_dashboard"))
+        flash("Usuario o contraseña incorrectos.","error")
+    return render_template("courier_login.html")
+
+@app.route("/repartidor/logout")
+def courier_logout():
+    session.pop("courier_logged",None)
+    session.pop("courier_id",None)
+    session.pop("courier_name",None)
+    return redirect(url_for("courier_login"))
+
+@app.route("/repartidor")
+@courier_auth
+def courier_dashboard():
+    courier_id=session["courier_id"]
+    c=db()
+    pedidos=c.execute("""
+        SELECT o.*,b.name business_name,b.address business_address,b.phone business_phone
+        FROM orders o JOIN businesses b ON b.id=o.business_id
+        WHERE o.courier_id=? AND o.status IN ('preparando','camino')
+        ORDER BY CASE WHEN o.status='camino' THEN 0 ELSE 1 END,o.id DESC
+    """,(courier_id,)).fetchall()
+    history=c.execute("""
+        SELECT o.*,b.name business_name
+        FROM orders o JOIN businesses b ON b.id=o.business_id
+        WHERE o.courier_id=? AND o.status='entregado'
+        ORDER BY o.id DESC LIMIT 10
+    """,(courier_id,)).fetchall()
+    c.close()
+    return render_template("courier_dashboard.html",pedidos=pedidos,historial=history)
+
+@app.route("/repartidor/pedido/<int:order_id>")
+@courier_auth
+def courier_order_detail(order_id):
+    courier_id=session["courier_id"]
+    c=db()
+    o=c.execute("""SELECT o.*,b.name business_name,b.address business_address,b.phone business_phone
+        FROM orders o JOIN businesses b ON b.id=o.business_id
+        WHERE o.id=? AND o.courier_id=?""",(order_id,courier_id)).fetchone()
+    if not o:
+        c.close();abort(404)
+    items=c.execute("SELECT * FROM order_items WHERE order_id=?",(order_id,)).fetchall()
+    c.close()
+    return render_template("courier_order_detail.html",pedido=o,items=items)
+
+@app.post("/repartidor/pedido/<int:order_id>/estado")
+@courier_auth
+def courier_order_status(order_id):
+    courier_id=session["courier_id"]
+    s=request.form.get("status","")
+    if s not in {"camino","entregado"}:
+        flash("Acción no válida.","error")
+        return redirect(url_for("courier_order_detail",order_id=order_id))
+    from datetime import datetime
+    now=datetime.now().isoformat(timespec="seconds")
+    c=db()
+    if s=="camino":
+        cursor = c.execute(
+            "UPDATE orders SET status='camino',picked_up_at=COALESCE(picked_up_at,?) WHERE id=? AND courier_id=?",
+            (now,order_id,courier_id)
+        )
+    else:
+        cursor = c.execute(
+            "UPDATE orders SET status='entregado',delivered_at=COALESCE(delivered_at,?) WHERE id=? AND courier_id=?",
+            (now,order_id,courier_id)
+        )
+    changed = cursor.rowcount
+    c.commit();c.close()
+    flash("Pedido actualizado." if changed else "No se pudo actualizar el pedido.","success" if changed else "error")
+    return redirect(url_for("courier_dashboard"))
+
+# Business and product admin
+@app.route("/admin/negocios/nuevo",methods=["GET","POST"])
+@auth
+def admin_business_new():
+    if request.method=="POST":
+        name=request.form.get("name","").strip();cat=request.form.get("category","").strip();desc=request.form.get("description","").strip();rating=request.form.get("rating","5") or "5";dt=request.form.get("delivery_time","20-30 min").strip();phone=request.form.get("phone","").strip();addr=request.form.get("address","").strip();featured=1 if request.form.get("featured") else 0;image=save_image(request.files.get("image"))
+        if not name or not cat:flash("Nombre y categoría son obligatorios.","error");return render_template("admin_business_form.html",negocio=None)
+        c=db();c.execute("INSERT INTO businesses(name,category,description,rating,delivery_time,phone,address,featured,image) VALUES(?,?,?,?,?,?,?,?,?)",(name,cat,desc,float(rating),dt,phone,addr,featured,image));c.commit();c.close();flash("Negocio creado.","success");return redirect(url_for("admin_dashboard"))
+    return render_template("admin_business_form.html",negocio=None)
+
+@app.route("/admin/negocios/<int:business_id>/editar",methods=["GET","POST"])
+@auth
+def admin_business_edit(business_id):
+    c=db();n=c.execute("SELECT * FROM businesses WHERE id=?",(business_id,)).fetchone();c.close()
+    if not n:abort(404)
+    if request.method=="POST":
+        name=request.form.get("name","").strip();cat=request.form.get("category","").strip();desc=request.form.get("description","").strip();rating=request.form.get("rating","5") or "5";dt=request.form.get("delivery_time","20-30 min").strip();phone=request.form.get("phone","").strip();addr=request.form.get("address","").strip();featured=1 if request.form.get("featured") else 0;ni=save_image(request.files.get("image"));image=ni or n["image"]
+        if not name or not cat:flash("Nombre y categoría son obligatorios.","error");return render_template("admin_business_form.html",negocio=n)
+        c=db();c.execute("UPDATE businesses SET name=?,category=?,description=?,rating=?,delivery_time=?,phone=?,address=?,featured=?,image=? WHERE id=?",(name,cat,desc,float(rating),dt,phone,addr,featured,image,business_id));c.commit();c.close();flash("Negocio actualizado.","success");return redirect(url_for("admin_dashboard"))
+    return render_template("admin_business_form.html",negocio=n)
+
+@app.post("/admin/negocios/<int:business_id>/eliminar")
+@auth
+def admin_business_delete(business_id):
+    c=db();c.execute("DELETE FROM businesses WHERE id=?",(business_id,));c.commit();c.close();flash("Negocio eliminado.","success");return redirect(url_for("admin_dashboard"))
+
+@app.post("/admin/negocios/<int:business_id>/destacado")
+@auth
+def admin_business_featured(business_id):
+    c=db();x=c.execute("SELECT featured FROM businesses WHERE id=?",(business_id,)).fetchone()
+    if x:c.execute("UPDATE businesses SET featured=? WHERE id=?",(0 if x["featured"] else 1,business_id));c.commit()
+    c.close();return redirect(url_for("admin_dashboard"))
+
+@app.route("/admin/negocios/<int:business_id>/productos")
+@auth
+def admin_products(business_id):
+    c=db();n=c.execute("SELECT * FROM businesses WHERE id=?",(business_id,)).fetchone();p=c.execute("SELECT * FROM products WHERE business_id=? ORDER BY active DESC,category,name",(business_id,)).fetchall();c.close()
+    if not n:abort(404)
+    return render_template("admin_products.html",negocio=n,productos=p)
+
+@app.route("/admin/negocios/<int:business_id>/productos/nuevo",methods=["GET","POST"])
+@auth
+def admin_product_new(business_id):
+    c=db();n=c.execute("SELECT * FROM businesses WHERE id=?",(business_id,)).fetchone();c.close()
+    if not n:abort(404)
+    if request.method=="POST":
+        name=request.form.get("name","").strip();desc=request.form.get("description","").strip();price=request.form.get("price","0") or "0";cat=request.form.get("category","General").strip() or "General";image=save_image(request.files.get("image"))
+        if not name:flash("El nombre del producto es obligatorio.","error");return render_template("admin_product_form.html",negocio=n,producto=None)
+        c=db();c.execute("INSERT INTO products(business_id,name,description,price,category,image) VALUES(?,?,?,?,?,?)",(business_id,name,desc,float(price),cat,image));c.commit();c.close();flash("Producto creado.","success");return redirect(url_for("admin_products",business_id=business_id))
+    return render_template("admin_product_form.html",negocio=n,producto=None)
+
+@app.route("/admin/productos/<int:product_id>/editar",methods=["GET","POST"])
+@auth
+def admin_product_edit(product_id):
+    c=db();p=c.execute("SELECT * FROM products WHERE id=?",(product_id,)).fetchone();n=c.execute("SELECT * FROM businesses WHERE id=?",(p["business_id"],)).fetchone() if p else None;c.close()
+    if not p or not n:abort(404)
+    if request.method=="POST":
+        name=request.form.get("name","").strip();desc=request.form.get("description","").strip();price=request.form.get("price","0") or "0";cat=request.form.get("category","General").strip() or "General";active=1 if request.form.get("active") else 0;ni=save_image(request.files.get("image"));image=ni or p["image"]
+        if not name:flash("El nombre del producto es obligatorio.","error");return render_template("admin_product_form.html",negocio=n,producto=p)
+        c=db();c.execute("UPDATE products SET name=?,description=?,price=?,category=?,image=?,active=? WHERE id=?",(name,desc,float(price),cat,image,active,product_id));c.commit();c.close();flash("Producto actualizado.","success");return redirect(url_for("admin_products",business_id=n["id"]))
+    return render_template("admin_product_form.html",negocio=n,producto=p)
+
+@app.post("/admin/productos/<int:product_id>/eliminar")
+@auth
+def admin_product_delete(product_id):
+    c=db();p=c.execute("SELECT business_id FROM products WHERE id=?",(product_id,)).fetchone()
+    if not p:c.close();abort(404)
+    c.execute("DELETE FROM products WHERE id=?",(product_id,));c.commit();c.close();flash("Producto eliminado.","success");return redirect(url_for("admin_products",business_id=p["business_id"]))
+
+if __name__=="__main__":
+    init_db()
+    port=int(os.environ.get("PORT","5000"))
+    host=os.environ.get("HOST","127.0.0.1")
+    debug=os.environ.get("FLASK_DEBUG","0")=="1"
+    app.run(host=host,port=port,debug=debug)

@@ -1,0 +1,19 @@
+{% extends "base.html" %}
+{% block title %}Mis entregas · Repartidor{% endblock %}
+{% block content %}
+<main class="admin-main">
+<div class="courier-top"><div><span class="eyebrow">PANEL DE REPARTIDOR</span><h1>Hola, {{ courier_name }} 👋</h1><p>Aquí aparecen los pedidos que tienes asignados.</p></div><a class="btn ghost" href="{{ url_for('courier_logout') }}">Salir</a></div>
+<section class="courier-stat"><span>🛵</span><div><b>{{ pedidos|length }}</b><small>Entregas pendientes</small></div></section>
+<h2 class="subheading">Mis entregas</h2>
+<div class="courier-orders">
+{% for p in pedidos %}
+<a class="courier-order-card" href="{{ url_for('courier_order_detail',order_id=p.id) }}">
+<div class="courier-order-top"><span class="order-number">#{{ p.id }}</span><span class="order-status {{ p.status }}">{{ statuses[p.status] }}</span></div>
+<h3>{{ p.customer_name }}</h3><p>🏪 {{ p.business_name }}</p><p>📍 {{ p.customer_address }}</p><strong>${{ "%.2f"|format(p.total) }}</strong><span class="courier-arrow">Ver entrega →</span>
+</a>
+{% else %}<div class="empty-box">No tienes entregas pendientes.</div>{% endfor %}
+</div>
+<h2 class="subheading">Entregas recientes</h2>
+<div class="history-list">{% for p in historial %}<div><b>#{{ p.id }} · {{ p.customer_name }}</b><span>{{ p.business_name }} · ${{ "%.2f"|format(p.total) }} · ✅ Entregado</span></div>{% else %}<div class="empty-box">Aún no tienes entregas completadas.</div>{% endfor %}</div>
+</main>
+{% endblock %}

@@ -1,0 +1,17 @@
+{% extends "base.html" %}
+{% block title %}Entrega #{{ pedido.id }}{% endblock %}
+{% block content %}
+<main class="admin-main narrow">
+<a class="back-link" href="{{ url_for('courier_dashboard') }}">← Mis entregas</a>
+<div class="courier-detail-head"><div><span class="eyebrow">ENTREGA #{{ pedido.id }}</span><h1>{{ pedido.customer_name }}</h1><p>{{ pedido.business_name }}</p></div><span class="order-status {{ pedido.status }}">{{ statuses[pedido.status] }}</span></div>
+<div class="detail-card"><h2>📍 Dirección de entrega</h2><div class="delivery-address">{{ pedido.customer_address }}</div><a class="btn outline" target="_blank" href="https://www.google.com/maps/search/?api=1&query={{ pedido.customer_address|urlencode }}">🗺️ Abrir en Google Maps</a></div>
+<div class="detail-card"><h2>🛍️ Pedido</h2>{% for i in items %}<div class="detail-item"><div><b>{{ i.quantity }} × {{ i.product_name }}</b><small>${{ "%.2f"|format(i.price) }} c/u</small></div><strong>${{ "%.2f"|format(i.subtotal) }}</strong></div>{% endfor %}<div class="detail-total"><span>Productos</span><strong>${{ "%.2f"|format(pedido.total - 35) }}</strong></div>
+<div class="detail-total"><span>Entrega</span><strong>$35.00</strong></div>
+<div class="detail-total grand"><span>Total</span><strong>${{ "%.2f"|format(pedido.total) }}</strong></div></div>
+<div class="detail-card"><h2>👤 Cliente</h2><div class="customer-data"><span>Nombre</span><b>{{ pedido.customer_name }}</b><span>Teléfono</span><b>{{ pedido.customer_phone }}</b>{% if pedido.notes %}<span>Notas</span><b>{{ pedido.notes }}</b>{% endif %}</div></div>
+<div class="courier-action-box">
+{% if pedido.status == 'preparando' %}<p>Cuando recojas el pedido en el negocio, presiona:</p><form method="post" action="{{ url_for('courier_order_status',order_id=pedido.id) }}"><input type="hidden" name="status" value="camino"><button class="btn primary full">🛵 Marcar como "En camino"</button></form>
+{% elif pedido.status == 'camino' %}<p>Cuando entregues el pedido al cliente, presiona:</p><form method="post" action="{{ url_for('courier_order_status',order_id=pedido.id) }}"><input type="hidden" name="status" value="entregado"><button class="btn primary full">✅ Marcar como "Entregado"</button></form>
+{% else %}<div class="delivered-message">✅ Esta entrega ya fue completada.</div>{% endif %}
+</div>
+{% endblock %}

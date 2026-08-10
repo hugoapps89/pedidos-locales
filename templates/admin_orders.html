@@ -1,0 +1,17 @@
+{% extends "base.html" %}
+{% block title %}Pedidos · Administrador{% endblock %}
+{% block content %}
+<main class="admin-main">
+<div class="admin-header"><div><a class="back-link" href="{{ url_for('admin_dashboard') }}">← Administrador</a><h1>Pedidos</h1><p>Consulta y actualiza el estado de cada pedido.</p></div></div>
+<div class="filter-row"><a class="filter {% if not selected_status %}active{% endif %}" href="{{ url_for('admin_orders') }}">Todos</a>{% for key,label in statuses.items() %}<a class="filter {% if selected_status==key %}active{% endif %}" href="{{ url_for('admin_orders',status=key) }}">{{ label }}</a>{% endfor %}</div>
+<div class="orders-table">
+{% for p in pedidos %}
+<a class="order-row" href="{{ url_for('admin_order_detail',order_id=p.id) }}">
+<div class="order-number">#{{ p.id }}</div><div><b>{{ p.customer_name }}</b><small>{{ p.business_name }} · {{ p.customer_phone }}</small></div>
+<div class="order-address">{{ p.customer_address }}</div><div class="order-total">${{ "%.2f"|format(p.total) }}</div>
+<div class="order-status {{ p.status }}">{{ statuses[p.status] }}</div><div class="order-arrow">›</div>
+</a>
+{% else %}<div class="empty-box">No hay pedidos en este filtro.</div>{% endfor %}
+</div>
+</main>
+{% endblock %}

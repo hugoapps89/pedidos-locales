@@ -1,0 +1,11 @@
+venv/
+__pycache__/
+*.pyc
+pedidos_locales.db
+storage/
+.env
+.env.*
+!.env.example
+.vscode/
+static/uploads/*
+!static/uploads/.gitkeep

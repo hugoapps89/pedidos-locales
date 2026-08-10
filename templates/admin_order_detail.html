@@ -1,0 +1,23 @@
+{% extends "base.html" %}
+{% block title %}Pedido #{{ pedido.id }}{% endblock %}
+{% block content %}
+<main class="admin-main narrow">
+<a class="back-link" href="{{ url_for('admin_orders') }}">← Todos los pedidos</a>
+<div class="order-detail-head"><div><span class="eyebrow">PEDIDO #{{ pedido.id }}</span><h1>{{ pedido.business_name }}</h1><p>{{ pedido.customer_name }} · {{ pedido.customer_phone }}</p></div><span class="order-status big {{ pedido.status }}">{{ statuses[pedido.status] }}</span></div>
+<div class="order-detail-grid">
+<section class="detail-card"><h2>Productos</h2>{% for i in items %}<div class="detail-item"><div><b>{{ i.quantity }} × {{ i.product_name }}</b><small>${{ "%.2f"|format(i.price) }} c/u</small></div><strong>${{ "%.2f"|format(i.subtotal) }}</strong></div>{% endfor %}<div class="detail-total"><span>Productos</span><strong>${{ "%.2f"|format(pedido.total - 35) }}</strong></div>
+<div class="detail-total"><span>Entrega</span><strong>$35.00</strong></div>
+<div class="detail-total grand"><span>Total</span><strong>${{ "%.2f"|format(pedido.total) }}</strong></div></section>
+<section class="detail-card"><h2>Cliente y entrega</h2><div class="customer-data"><span>Cliente</span><b>{{ pedido.customer_name }}</b><span>Teléfono</span><b>{{ pedido.customer_phone }}</b><span>Dirección</span><b>{{ pedido.customer_address }}</b><span>Pago</span><b>{{ pedido.payment_method }}</b>{% if pedido.notes %}<span>Notas</span><b>{{ pedido.notes }}</b>{% endif %}</div></section>
+</div>
+<section class="detail-card"><h2>🛵 Asignar repartidor</h2>
+<form class="assign-form" method="post" action="{{ url_for('admin_assign_courier',order_id=pedido.id) }}">
+<select name="courier_id"><option value="">-- Sin repartidor --</option>
+{% for r in repartidores %}<option value="{{ r.id }}" {% if pedido.courier_id==r.id %}selected{% endif %}>{{ r.name }} · {{ r.phone }}</option>{% endfor %}
+</select><button class="btn primary">Asignar</button></form>
+{% if pedido.courier_name %}<p class="assigned-note">🛵 Asignado a <b>{{ pedido.courier_name }}</b>.</p>{% endif %}
+</section>
+<section class="detail-card status-card"><h2>Actualizar estado</h2><div class="status-buttons">{% for key,label in statuses.items() %}<form method="post" action="{{ url_for('admin_order_status',order_id=pedido.id) }}"><input type="hidden" name="status" value="{{ key }}"><button class="status-choice {{ key }} {% if pedido.status==key %}selected{% endif %}">{{ label }}</button></form>{% endfor %}</div></section>
+<div class="detail-actions"><a class="btn outline" href="https://wa.me/52{{ pedido.customer_phone|replace(' ','')|replace('-','') }}" target="_blank">💬 Contactar cliente</a><form method="post" action="{{ url_for('admin_order_delete',order_id=pedido.id) }}" onsubmit="return confirm('¿Eliminar este pedido?')"><button class="btn danger">🗑 Eliminar pedido</button></form></div>
+</main>
+{% endblock %}

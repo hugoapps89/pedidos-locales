@@ -1,0 +1,17 @@
+{% extends "base.html" %}
+{% block title %}{{ 'Editar' if negocio else 'Nuevo' }} negocio{% endblock %}
+{% block content %}
+<main class="admin-main narrow"><a class="back-link" href="{{ url_for('admin_dashboard') }}">← Volver al administrador</a><div class="form-header"><span class="eyebrow">NEGOCIO</span><h1>{{ 'Editar negocio' if negocio else 'Crear negocio' }}</h1><p>Estos datos aparecerán en la página pública.</p></div>
+<form class="admin-form" method="post" enctype="multipart/form-data"><div class="form-grid">
+<label>Nombre del negocio *<input name="name" required value="{{ negocio.name if negocio else '' }}" placeholder="Ej. Taquería El Sabor"></label>
+<label>Categoría *<input name="category" required value="{{ negocio.category if negocio else '' }}" placeholder="Comida"></label>
+<label>Calificación<input name="rating" type="number" step="0.1" min="0" max="5" value="{{ negocio.rating if negocio else 5 }}"></label>
+<label>Tiempo de entrega<input name="delivery_time" value="{{ negocio.delivery_time if negocio else '20-30 min' }}"></label>
+<label>Teléfono / WhatsApp<input name="phone" value="{{ negocio.phone if negocio else '' }}" placeholder="9991234567"></label>
+<label>Dirección<input name="address" value="{{ negocio.address if negocio else '' }}" placeholder="Mérida, Yucatán"></label></div>
+<label>Descripción<textarea name="description" rows="3">{{ negocio.description if negocio else '' }}</textarea></label>
+<label>Fotografía del negocio<input name="image" type="file" accept=".png,.jpg,.jpeg,.webp,.gif"></label>
+{% if negocio and negocio.image %}<img class="form-preview" src="{{ url_for('static',filename='uploads/'+negocio.image) }}" alt="Imagen actual">{% endif %}
+<label class="check"><input name="featured" type="checkbox" {% if negocio and negocio.featured %}checked{% endif %}> Mostrar como negocio destacado</label>
+<div class="form-actions"><a class="btn ghost" href="{{ url_for('admin_dashboard') }}">Cancelar</a><button class="btn primary">Guardar negocio</button></div></form></main>
+{% endblock %}

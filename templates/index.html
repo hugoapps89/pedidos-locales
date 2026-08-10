@@ -1,0 +1,23 @@
+{% extends "base.html" %}
+{% block title %}Pedidos Locales{% endblock %}
+{% block content %}
+<main>
+<section class="hero"><div class="hero-copy"><span class="eyebrow">COMPRA LOCAL</span><h1>Pide en tus negocios<br><span>locales favoritos</span></h1><p>Descubre productos, arma tu pedido y contacta al negocio de forma fácil y rápida.</p>
+<div class="search"><input id="searchInput" type="search" placeholder="Buscar negocios o productos..."><button type="button">🔎</button></div>
+<div class="benefits"><div><span>🛒</span><b>Fácil y rápido</b><small>Pide en minutos</small></div><div><span>📍</span><b>Apoya lo local</b><small>Fortalece tu comunidad</small></div></div>
+</div><div class="hero-art"><div class="shop">🏪</div><div class="plant">🌿</div></div></section>
+
+<section id="negocios" class="section"><div class="section-title"><div><span class="line"></span><h2>Negocios destacados</h2></div><span id="resultText"></span></div>
+<div class="business-grid" id="businessGrid">
+{% for n in negocios %}
+<article class="business-card" data-search="{{ n.name }} {{ n.category }} {{ n.description }}">
+<div class="business-banner {% if n.image %}has-image{% else %}green{% endif %}" {% if n.image %}style="background-image:linear-gradient(90deg,rgba(0,0,0,.7),rgba(0,0,0,.1)),url('{{ url_for('static',filename='uploads/'+n.image) }}')"{% endif %}>
+{% if not n.image %}<span class="business-logo">{{ '🌮' if n.category == 'Comida' else '✏️' }}</span>{% endif %}
+<div><strong>{{ n.name.upper() }}</strong><small>{{ n.category }}</small></div></div>
+<div class="business-info"><div class="featured-label">{% if n.featured %}★ DESTACADO{% endif %}</div><h3>{{ n.name }}</h3><p>{{ n.category }} · {{ n.description }}</p>
+<div class="card-bottom"><span class="rating">★ {{ "%.1f"|format(n.rating) }} · {{ n.product_count }} productos</span><a class="btn primary" href="{{ url_for('negocio',negocio_id=n.id) }}">Ver negocio</a></div></div>
+</article>
+{% else %}<p>No hay negocios registrados.</p>{% endfor %}
+</div></section>
+</main>
+{% endblock %}
