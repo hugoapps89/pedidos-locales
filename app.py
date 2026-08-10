@@ -4,6 +4,8 @@ from pathlib import Path
 from flask import Flask, render_template, request, redirect, url_for, session, flash, abort, jsonify
 from werkzeug.utils import secure_filename
 from werkzeug.security import generate_password_hash, check_password_hash
+import json
+from urllib import request as urllib_request
 
 try:
     import psycopg
@@ -180,11 +182,97 @@ def auth(f):
     return w
 
 def save_image(file):
-    if not file or not file.filename or "." not in file.filename: return ""
+    """Sube a Cloudinary si está configurado; si no, usa el almacenamiento local."""
+    if not file or not file.filename or "." not in file.filename:
+        return ""
+
     ext=file.filename.rsplit(".",1)[1].lower()
-    if ext not in ALLOWED:return ""
-    original=secure_filename(file.filename); stem,_=os.path.splitext(original)
-    name=f"{stem}_{uuid.uuid4().hex[:8]}.{ext}"; file.save(UPLOAD_DIR/name); return name
+    if ext not in ALLOWED:
+        return ""
+
+    cloud_name=os.environ.get("CLOUDINARY_CLOUD_NAME","").strip()
+    upload_preset=os.environ.get("CLOUDINARY_UPLOAD_PRESET","").strip()
+
+    if cloud_name and upload_preset:
+        try:
+            file.stream.seek(0)
+            image_bytes=file.stream.read()
+
+            boundary="----PedidosLocalesCloudinary" + uuid.uuid4().hex
+            fields={
+                "upload_preset": upload_preset,
+                "folder": "pedidos-locales"
+            }
+
+            parts=[]
+            for key,value in fields.items():
+                parts.append(
+                    f"--{boundary}\r\n"
+                    f'Content-Disposition: form-data; name="{key}"\r\n\r\n'
+                    f"{value}\r\n"
+                )
+
+            filename=secure_filename(file.filename) or f"imagen.{ext}"
+            mime={
+                "jpg":"image/jpeg",
+                "jpeg":"image/jpeg",
+                "png":"image/png",
+                "webp":"image/webp",
+                "gif":"image/gif"
+            }.get(ext,"application/octet-stream")
+
+            parts.append(
+                f"--{boundary}\r\n"
+                f'Content-Disposition: form-data; name="file"; filename="{filename}"\r\n'
+                f"Content-Type: {mime}\r\n\r\n"
+            )
+
+            payload="".join(parts).encode("utf-8")
+            payload += image_bytes
+            payload += f"\r\n--{boundary}--\r\n".encode("utf-8")
+
+            endpoint=f"https://api.cloudinary.com/v1_1/{cloud_name}/image/upload"
+            req=urllib_request.Request(
+                endpoint,
+                data=payload,
+                headers={
+                    "Content-Type": f"multipart/form-data; boundary={boundary}",
+                    "Content-Length": str(len(payload))
+                },
+                method="POST"
+            )
+
+            with urllib_request.urlopen(req, timeout=30) as response:
+                result=json.loads(response.read().decode("utf-8"))
+
+            secure_url=result.get("secure_url","")
+            if secure_url:
+                return secure_url
+
+            app.logger.error("Cloudinary no devolvió secure_url: %s", result)
+            return ""
+
+        except Exception:
+            app.logger.exception("Error al subir imagen a Cloudinary")
+            return ""
+
+    # Fallback para desarrollo local cuando Cloudinary no está configurado.
+    original=secure_filename(file.filename)
+    stem,_=os.path.splitext(original)
+    name=f"{stem}_{uuid.uuid4().hex[:8]}.{ext}"
+    file.stream.seek(0)
+    file.save(UPLOAD_DIR/name)
+    return name
+
+def image_url(value):
+    """Devuelve una URL Cloudinary o la ruta local equivalente."""
+    if not value:
+        return ""
+    value=str(value)
+    if value.startswith(("http://","https://")):
+        return value
+    return url_for("static", filename=f"uploads/{value}")
+
 
 @app.context_processor
 def helpers():
@@ -192,7 +280,8 @@ def helpers():
         "admin_logged": session.get("admin_logged", False),
         "courier_logged": session.get("courier_logged", False),
         "courier_name": session.get("courier_name", ""),
-        "statuses": STATUSES
+        "statuses": STATUSES,
+        "image_url": image_url
     }
 
 @app.route("/")

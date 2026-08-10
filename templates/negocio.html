@@ -2,7 +2,7 @@
 {% block title %}{{ negocio.name }} · Pedidos Locales{% endblock %}
 {% block content %}
 <main>
-<section class="store-hero {% if negocio.image %}has-image{% else %}green{% endif %}" {% if negocio.image %}style="background-image:linear-gradient(90deg,rgba(0,0,0,.78),rgba(0,0,0,.2)),url('{{ url_for('static',filename='uploads/'+negocio.image) }}')"{% endif %}>
+<section class="store-hero {% if negocio.image %}has-image{% else %}green{% endif %}" {% if negocio.image %}style="background-image:linear-gradient(90deg,rgba(0,0,0,.78),rgba(0,0,0,.2)),url('{{ image_url(negocio.image) }}')"{% endif %}>
 <div class="store-icon">{{ '🌮' if negocio.category == 'Comida' else '✏️' }}</div>
 <div><span class="eyebrow light">{{ negocio.category.upper() }}</span><h1>{{ negocio.name }}</h1><p>{{ negocio.description }}</p><div class="store-meta">★ {{ "%.1f"|format(negocio.rating) }} · ⏱ {{ negocio.delivery_time }} · {{ negocio.address or 'Mérida, Yucatán' }}</div></div>
 </section>
@@ -12,7 +12,7 @@
 <div class="products-grid">
 {% for p in productos %}
 <article class="product-card">
-{% if p.image %}<img class="product-image real" src="{{ url_for('static',filename='uploads/'+p.image) }}" alt="{{ p.name }}">{% else %}<div class="product-image green">{{ '🌮' if negocio.category == 'Comida' else '📚' }}</div>{% endif %}
+{% if p.image %}<img class="product-image real" src="{{ image_url(p.image) }}" alt="{{ p.name }}">{% else %}<div class="product-image green">{{ '🌮' if negocio.category == 'Comida' else '📚' }}</div>{% endif %}
 <div class="product-body"><span class="product-category">{{ p.category }}</span><h3>{{ p.name }}</h3><p>{{ p.description }}</p><div class="product-bottom"><strong>${{ "%.2f"|format(p.price) }}</strong><button class="btn outline add-product" data-id="{{ p.id }}" data-name="{{ p.name }}" data-price="{{ p.price }}">＋ Agregar</button></div></div>
 </article>
 {% else %}<p>Este negocio todavía no tiene productos activos.</p>{% endfor %}

@@ -11,7 +11,7 @@
 <label>Dirección<input name="address" value="{{ negocio.address if negocio else '' }}" placeholder="Mérida, Yucatán"></label></div>
 <label>Descripción<textarea name="description" rows="3">{{ negocio.description if negocio else '' }}</textarea></label>
 <label>Fotografía del negocio<input name="image" type="file" accept=".png,.jpg,.jpeg,.webp,.gif"></label>
-{% if negocio and negocio.image %}<img class="form-preview" src="{{ url_for('static',filename='uploads/'+negocio.image) }}" alt="Imagen actual">{% endif %}
+{% if negocio and negocio.image %}<img class="form-preview" src="{{ image_url(negocio.image) }}" alt="Imagen actual">{% endif %}
 <label class="check"><input name="featured" type="checkbox" {% if negocio and negocio.featured %}checked{% endif %}> Mostrar como negocio destacado</label>
 <div class="form-actions"><a class="btn ghost" href="{{ url_for('admin_dashboard') }}">Cancelar</a><button class="btn primary">Guardar negocio</button></div></form></main>
 {% endblock %}

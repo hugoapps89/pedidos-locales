@@ -2,7 +2,7 @@
 {% block title %}Productos · {{ negocio.name }}{% endblock %}
 {% block content %}
 <main class="admin-main"><div class="admin-header"><div><a class="back-link" href="{{ url_for('admin_dashboard') }}">← Administrador</a><h1>{{ negocio.name }}</h1><p>Gestiona productos, precios, categorías y fotografías.</p></div><a class="btn primary" href="{{ url_for('admin_product_new',business_id=negocio.id) }}">＋ Nuevo producto</a></div>
-<div class="product-admin-grid">{% for p in productos %}<article class="product-admin">{% if p.image %}<img src="{{ url_for('static',filename='uploads/'+p.image) }}" alt="{{ p.name }}">{% else %}<div class="no-img">📦</div>{% endif %}
+<div class="product-admin-grid">{% for p in productos %}<article class="product-admin">{% if p.image %}<img src="{{ image_url(p.image) }}" alt="{{ p.name }}">{% else %}<div class="no-img">📦</div>{% endif %}
 <div class="product-admin-body"><div><span class="product-category">{{ p.category }}</span><span class="status {{ 'on' if p.active else 'off' }}">{{ 'Activo' if p.active else 'Oculto' }}</span></div><h3>{{ p.name }}</h3><p>{{ p.description }}</p><strong>${{ "%.2f"|format(p.price) }}</strong>
 <div class="admin-actions"><a class="btn outline" href="{{ url_for('admin_product_edit',product_id=p.id) }}">✏️ Editar</a><form method="post" action="{{ url_for('admin_product_delete',product_id=p.id) }}" onsubmit="return confirm('¿Eliminar este producto?')"><button class="btn danger">🗑</button></form></div></div></article>
 {% else %}<p>No hay productos.</p>{% endfor %}</div></main>
