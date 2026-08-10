@@ -5,10 +5,22 @@ from flask import Flask, render_template, request, redirect, url_for, session, f
 from werkzeug.utils import secure_filename
 from werkzeug.security import generate_password_hash, check_password_hash
 
+try:
+    import psycopg
+    from psycopg.rows import dict_row
+except ImportError:
+    psycopg = None
+    dict_row = None
+
 BASE_DIR=Path(__file__).resolve().parent
 DB_PATH=Path(os.environ.get("DATABASE_PATH", str(BASE_DIR/"pedidos_locales.db")))
 DB_PATH.parent.mkdir(parents=True, exist_ok=True)
 UPLOAD_DIR=BASE_DIR/"static"/"uploads"; UPLOAD_DIR.mkdir(parents=True,exist_ok=True)
+
+DATABASE_URL=os.environ.get("DATABASE_URL","").strip()
+if DATABASE_URL.startswith("postgres://"):
+    DATABASE_URL="postgresql://"+DATABASE_URL[len("postgres://"):]
+
 app=Flask(__name__)
 app.secret_key=os.environ.get("SECRET_KEY","dev-only-change-this-secret")
 app.config["MAX_CONTENT_LENGTH"]=5*1024*1024
@@ -18,59 +30,147 @@ IS_PRODUCTION=os.environ.get("FLASK_ENV","").lower()=="production"
 STATUSES={"nuevo":"🆕 Nuevo","preparando":"👨‍🍳 Preparando","camino":"🛵 En camino","entregado":"✅ Entregado","cancelado":"❌ Cancelado"}
 DELIVERY_FEE=35.00
 
+class DBConnection:
+    """SQLite localmente; PostgreSQL cuando Render proporciona DATABASE_URL."""
+    def __init__(self):
+        self.postgres=bool(DATABASE_URL)
+        if self.postgres:
+            if psycopg is None:
+                raise RuntimeError("Falta psycopg. Ejecuta pip install -r requirements.txt")
+            self.conn=psycopg.connect(DATABASE_URL,row_factory=dict_row)
+        else:
+            self.conn=sqlite3.connect(DB_PATH)
+            self.conn.row_factory=sqlite3.Row
+            self.conn.execute("PRAGMA foreign_keys=ON")
+
+    def execute(self,sql,params=()):
+        if self.postgres:
+            sql=sql.replace("?","%s")
+        return self.conn.execute(sql,params)
+
+    def executemany(self,sql,seq):
+        if self.postgres:
+            sql=sql.replace("?", "%s")
+            with self.conn.cursor() as cursor:
+                return cursor.executemany(sql,seq)
+        return self.conn.executemany(sql,seq)
+
+    def commit(self):
+        self.conn.commit()
+
+    def rollback(self):
+        self.conn.rollback()
+
+    def close(self):
+        self.conn.close()
+
+    def executescript(self,script):
+        if self.postgres:
+            for statement in script.split(";"):
+                statement=statement.strip()
+                if statement:
+                    self.conn.execute(statement)
+        else:
+            self.conn.executescript(script)
+
 def db():
-    c=sqlite3.connect(DB_PATH); c.row_factory=sqlite3.Row; c.execute("PRAGMA foreign_keys=ON"); return c
+    return DBConnection()
 
 def init_db():
     c=db()
-    c.executescript("""
-    CREATE TABLE IF NOT EXISTS businesses(id INTEGER PRIMARY KEY AUTOINCREMENT,name TEXT NOT NULL,category TEXT NOT NULL,description TEXT DEFAULT '',rating REAL DEFAULT 5,delivery_time TEXT DEFAULT '20-30 min',phone TEXT DEFAULT '',address TEXT DEFAULT '',featured INTEGER DEFAULT 0,image TEXT DEFAULT '',created_at TEXT DEFAULT CURRENT_TIMESTAMP);
-    CREATE TABLE IF NOT EXISTS products(id INTEGER PRIMARY KEY AUTOINCREMENT,business_id INTEGER NOT NULL,name TEXT NOT NULL,description TEXT DEFAULT '',price REAL NOT NULL DEFAULT 0,category TEXT DEFAULT 'General',image TEXT DEFAULT '',active INTEGER DEFAULT 1,created_at TEXT DEFAULT CURRENT_TIMESTAMP,FOREIGN KEY(business_id) REFERENCES businesses(id) ON DELETE CASCADE);
-    CREATE TABLE IF NOT EXISTS orders(id INTEGER PRIMARY KEY AUTOINCREMENT,business_id INTEGER NOT NULL,customer_name TEXT NOT NULL,customer_phone TEXT NOT NULL,customer_address TEXT NOT NULL,notes TEXT DEFAULT '',payment_method TEXT DEFAULT 'Efectivo',total REAL NOT NULL DEFAULT 0,status TEXT NOT NULL DEFAULT 'nuevo',created_at TEXT DEFAULT CURRENT_TIMESTAMP,FOREIGN KEY(business_id) REFERENCES businesses(id) ON DELETE CASCADE);
-    CREATE TABLE IF NOT EXISTS order_items(id INTEGER PRIMARY KEY AUTOINCREMENT,order_id INTEGER NOT NULL,product_id INTEGER,product_name TEXT NOT NULL,price REAL NOT NULL,quantity INTEGER NOT NULL,subtotal REAL NOT NULL,FOREIGN KEY(order_id) REFERENCES orders(id) ON DELETE CASCADE);
-    CREATE TABLE IF NOT EXISTS couriers(
-        id INTEGER PRIMARY KEY AUTOINCREMENT,
-        name TEXT NOT NULL,
-        phone TEXT NOT NULL,
-        username TEXT NOT NULL UNIQUE,
-        password TEXT NOT NULL,
-        active INTEGER DEFAULT 1,
-        created_at TEXT DEFAULT CURRENT_TIMESTAMP
-    );
-    """)
-    # Upgrade an existing V3 database without deleting existing orders.
-    order_columns = {row["name"] for row in c.execute("PRAGMA table_info(orders)").fetchall()}
-    if "courier_id" not in order_columns:
-        c.execute("ALTER TABLE orders ADD COLUMN courier_id INTEGER")
-    if "picked_up_at" not in order_columns:
-        c.execute("ALTER TABLE orders ADD COLUMN picked_up_at TEXT")
-    if "delivered_at" not in order_columns:
-        c.execute("ALTER TABLE orders ADD COLUMN delivered_at TEXT")
 
-    if c.execute("SELECT COUNT(*) c FROM businesses").fetchone()["c"]==0:
-        c.execute("INSERT INTO businesses(name,category,description,rating,delivery_time,address,featured) VALUES(?,?,?,?,?,?,1)",("Taquería El Sabor","Comida","Tacos, tortas y bebidas",4.8,"20-30 min","Mérida, Yucatán"))
-        b1=c.execute("SELECT last_insert_rowid()").fetchone()[0]
-        c.execute("INSERT INTO businesses(name,category,description,rating,delivery_time,address,featured) VALUES(?,?,?,?,?,?,1)",("Papelería La Estrella","Papelería","Útiles escolares, copias e impresiones",4.7,"15-25 min","Mérida, Yucatán"))
-        b2=c.execute("SELECT last_insert_rowid()").fetchone()[0]
-        ps=[(b1,"Taco al Pastor","Carne al pastor con cebolla, cilantro y piña.",18,"Tacos"),(b1,"Taco de Bistec","Bistec con cebolla, cilantro y salsa.",20,"Tacos"),(b1,"Torta de Milanesa","Milanesa con frijoles y verduras.",45,"Tortas"),(b1,"Agua de Jamaica","Agua fresca natural.",25,"Bebidas"),(b2,"Cuaderno Profesional","100 hojas, cuadros.",28,"Útiles"),(b2,"Lápiz #2","Lápiz escolar.",6,"Escritura"),(b2,"Bolígrafo Azul","Tinta azul.",7,"Escritura"),(b2,"Resaltador","Varios colores.",12,"Escritura"),(b2,"Marcadores","Paquete de 12.",45,"Papelería"),(b2,"Pegamento en Barra","Pegamento escolar.",18,"Papelería"),(b2,"Hojas Blancas","Paquete de 100.",55,"Papelería"),(b2,"Impresión B/N","Tamaño carta.",2,"Impresiones")]
+    if c.postgres:
+        c.executescript("""
+        CREATE TABLE IF NOT EXISTS businesses(
+            id INTEGER GENERATED BY DEFAULT AS IDENTITY PRIMARY KEY,
+            name TEXT NOT NULL, category TEXT NOT NULL, description TEXT DEFAULT '',
+            rating DOUBLE PRECISION DEFAULT 5, delivery_time TEXT DEFAULT '20-30 min',
+            phone TEXT DEFAULT '', address TEXT DEFAULT '', featured INTEGER DEFAULT 0,
+            image TEXT DEFAULT '', created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+        );
+        CREATE TABLE IF NOT EXISTS products(
+            id INTEGER GENERATED BY DEFAULT AS IDENTITY PRIMARY KEY,
+            business_id INTEGER NOT NULL REFERENCES businesses(id) ON DELETE CASCADE,
+            name TEXT NOT NULL, description TEXT DEFAULT '', price DOUBLE PRECISION NOT NULL DEFAULT 0,
+            category TEXT DEFAULT 'General', image TEXT DEFAULT '', active INTEGER DEFAULT 1,
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+        );
+        CREATE TABLE IF NOT EXISTS orders(
+            id INTEGER GENERATED BY DEFAULT AS IDENTITY PRIMARY KEY,
+            business_id INTEGER NOT NULL REFERENCES businesses(id) ON DELETE CASCADE,
+            customer_name TEXT NOT NULL, customer_phone TEXT NOT NULL, customer_address TEXT NOT NULL,
+            notes TEXT DEFAULT '', payment_method TEXT DEFAULT 'Efectivo',
+            total DOUBLE PRECISION NOT NULL DEFAULT 0, status TEXT NOT NULL DEFAULT 'nuevo',
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP, courier_id INTEGER,
+            picked_up_at TIMESTAMP, delivered_at TIMESTAMP
+        );
+        CREATE TABLE IF NOT EXISTS order_items(
+            id INTEGER GENERATED BY DEFAULT AS IDENTITY PRIMARY KEY,
+            order_id INTEGER NOT NULL REFERENCES orders(id) ON DELETE CASCADE,
+            product_id INTEGER, product_name TEXT NOT NULL, price DOUBLE PRECISION NOT NULL,
+            quantity INTEGER NOT NULL, subtotal DOUBLE PRECISION NOT NULL
+        );
+        CREATE TABLE IF NOT EXISTS couriers(
+            id INTEGER GENERATED BY DEFAULT AS IDENTITY PRIMARY KEY,
+            name TEXT NOT NULL, phone TEXT NOT NULL, username TEXT NOT NULL UNIQUE,
+            password TEXT NOT NULL, active INTEGER DEFAULT 1,
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+        );
+        """)
+        for col, typ in [
+            ("courier_id","INTEGER"),
+            ("picked_up_at","TIMESTAMP"),
+            ("delivered_at","TIMESTAMP"),
+        ]:
+            c.execute(f"ALTER TABLE orders ADD COLUMN IF NOT EXISTS {col} {typ}")
+
+    else:
+        c.executescript("""
+        CREATE TABLE IF NOT EXISTS businesses(id INTEGER PRIMARY KEY AUTOINCREMENT,name TEXT NOT NULL,category TEXT NOT NULL,description TEXT DEFAULT '',rating REAL DEFAULT 5,delivery_time TEXT DEFAULT '20-30 min',phone TEXT DEFAULT '',address TEXT DEFAULT '',featured INTEGER DEFAULT 0,image TEXT DEFAULT '',created_at TEXT DEFAULT CURRENT_TIMESTAMP);
+        CREATE TABLE IF NOT EXISTS products(id INTEGER PRIMARY KEY AUTOINCREMENT,business_id INTEGER NOT NULL,name TEXT NOT NULL,description TEXT DEFAULT '',price REAL NOT NULL DEFAULT 0,category TEXT DEFAULT 'General',image TEXT DEFAULT '',active INTEGER DEFAULT 1,created_at TEXT DEFAULT CURRENT_TIMESTAMP,FOREIGN KEY(business_id) REFERENCES businesses(id) ON DELETE CASCADE);
+        CREATE TABLE IF NOT EXISTS orders(id INTEGER PRIMARY KEY AUTOINCREMENT,business_id INTEGER NOT NULL,customer_name TEXT NOT NULL,customer_phone TEXT NOT NULL,customer_address TEXT NOT NULL,notes TEXT DEFAULT '',payment_method TEXT DEFAULT 'Efectivo',total REAL NOT NULL DEFAULT 0,status TEXT NOT NULL DEFAULT 'nuevo',created_at TEXT DEFAULT CURRENT_TIMESTAMP,FOREIGN KEY(business_id) REFERENCES businesses(id) ON DELETE CASCADE);
+        CREATE TABLE IF NOT EXISTS order_items(id INTEGER PRIMARY KEY AUTOINCREMENT,order_id INTEGER NOT NULL,product_id INTEGER,product_name TEXT NOT NULL,price REAL NOT NULL,quantity INTEGER NOT NULL,subtotal REAL NOT NULL,FOREIGN KEY(order_id) REFERENCES orders(id) ON DELETE CASCADE);
+        CREATE TABLE IF NOT EXISTS couriers(id INTEGER PRIMARY KEY AUTOINCREMENT,name TEXT NOT NULL,phone TEXT NOT NULL,username TEXT NOT NULL UNIQUE,password TEXT NOT NULL,active INTEGER DEFAULT 1,created_at TEXT DEFAULT CURRENT_TIMESTAMP);
+        """)
+        order_columns={row["name"] for row in c.execute("PRAGMA table_info(orders)").fetchall()}
+        if "courier_id" not in order_columns: c.execute("ALTER TABLE orders ADD COLUMN courier_id INTEGER")
+        if "picked_up_at" not in order_columns: c.execute("ALTER TABLE orders ADD COLUMN picked_up_at TEXT")
+        if "delivered_at" not in order_columns: c.execute("ALTER TABLE orders ADD COLUMN delivered_at TEXT")
+
+    if c.execute("SELECT COUNT(*) AS c FROM businesses").fetchone()["c"]==0:
+        c.execute("INSERT INTO businesses(name,category,description,rating,delivery_time,address,featured) VALUES(?,?,?,?,?,?,1)",
+                  ("Taquería El Sabor","Comida","Tacos, tortas y bebidas",4.8,"20-30 min","Mérida, Yucatán"))
+        b1=c.execute("SELECT id FROM businesses ORDER BY id DESC LIMIT 1").fetchone()["id"]
+        c.execute("INSERT INTO businesses(name,category,description,rating,delivery_time,address,featured) VALUES(?,?,?,?,?,?,1)",
+                  ("Papelería La Estrella","Papelería","Útiles escolares, copias e impresiones",4.7,"15-25 min","Mérida, Yucatán"))
+        b2=c.execute("SELECT id FROM businesses ORDER BY id DESC LIMIT 1").fetchone()["id"]
+        ps=[
+            (b1,"Taco al Pastor","Carne al pastor con cebolla, cilantro y piña.",18,"Tacos"),
+            (b1,"Taco de Bistec","Bistec con cebolla, cilantro y salsa.",20,"Tacos"),
+            (b1,"Torta de Milanesa","Milanesa con frijoles y verduras.",45,"Tortas"),
+            (b1,"Agua de Jamaica","Agua fresca natural.",25,"Bebidas"),
+            (b2,"Cuaderno Profesional","100 hojas, cuadros.",28,"Útiles"),
+            (b2,"Lápiz #2","Lápiz escolar.",6,"Escritura"),
+            (b2,"Bolígrafo Azul","Tinta azul.",7,"Escritura"),
+            (b2,"Resaltador","Varios colores.",12,"Escritura"),
+            (b2,"Marcadores","Paquete de 12.",45,"Papelería"),
+            (b2,"Pegamento en Barra","Pegamento escolar.",18,"Papelería"),
+            (b2,"Hojas Blancas","Paquete de 100.",55,"Papelería"),
+            (b2,"Impresión B/N","Tamaño carta.",2,"Impresiones")
+        ]
         c.executemany("INSERT INTO products(business_id,name,description,price,category) VALUES(?,?,?,?,?)",ps)
-    if c.execute("SELECT COUNT(*) c FROM couriers").fetchone()["c"] == 0:
+
+    if c.execute("SELECT COUNT(*) AS c FROM couriers").fetchone()["c"]==0:
         c.executemany(
             "INSERT INTO couriers(name,phone,username,password) VALUES(?,?,?,?)",
             [
-                ("Carlos Repartidor", "9990000001", "carlos", generate_password_hash("1234")),
-                ("Ana Repartidora", "9990000002", "ana", generate_password_hash("1234")),
-            ],
+                ("Carlos Repartidor","9990000001","carlos",generate_password_hash("1234")),
+                ("Ana Repartidora","9990000002","ana",generate_password_hash("1234"))
+            ]
         )
-    if c.execute("SELECT COUNT(*) c FROM couriers").fetchone()["c"] == 0:
-        c.executemany(
-            "INSERT INTO couriers(name,phone,username,password) VALUES(?,?,?,?)",
-            [
-                ("Carlos Repartidor", "9990000001", "carlos", generate_password_hash("1234")),
-                ("Ana Repartidora", "9990000002", "ana", generate_password_hash("1234")),
-            ],
-        )
-    c.commit(); c.close()
+
+    c.commit()
+    c.close()
 
 def auth(f):
     @wraps(f)
@@ -127,9 +227,23 @@ def crear_pedido():
     if not clean:c.close();return jsonify(ok=False,error="No hay productos válidos."),400
     delivery_fee=DELIVERY_FEE
     grand_total=total+delivery_fee
-    cur=c.execute("INSERT INTO orders(business_id,customer_name,customer_phone,customer_address,notes,payment_method,total,status) VALUES(?,?,?,?,?,?,?,'nuevo')",(bid,name,phone,address,notes,payment,grand_total))
-    oid=cur.lastrowid
-    c.executemany("INSERT INTO order_items(order_id,product_id,product_name,price,quantity,subtotal) VALUES(?,?,?,?,?,?)",[(oid,*x) for x in clean])
+    if c.postgres:
+        cur=c.execute(
+            "INSERT INTO orders(business_id,customer_name,customer_phone,customer_address,notes,payment_method,total,status) VALUES(?,?,?,?,?,?,?,'nuevo') RETURNING id",
+            (bid,name,phone,address,notes,payment,grand_total)
+        )
+        oid=cur.fetchone()["id"]
+    else:
+        cur=c.execute(
+            "INSERT INTO orders(business_id,customer_name,customer_phone,customer_address,notes,payment_method,total,status) VALUES(?,?,?,?,?,?,?,'nuevo')",
+            (bid,name,phone,address,notes,payment,grand_total)
+        )
+        oid=cur.lastrowid
+
+    c.executemany(
+        "INSERT INTO order_items(order_id,product_id,product_name,price,quantity,subtotal) VALUES(?,?,?,?,?,?)",
+        [(oid,*x) for x in clean]
+    )
     c.commit();c.close();return jsonify(ok=True,order_id=oid,subtotal=total,delivery_fee=delivery_fee,total=grand_total)
 
 @app.route("/pedido/<int:order_id>/estado")
@@ -255,7 +369,11 @@ def admin_courier_new():
         try:
             c.execute("INSERT INTO couriers(name,phone,username,password) VALUES(?,?,?,?)",(name,phone,username,generate_password_hash(password)))
             c.commit()
-        except sqlite3.IntegrityError:
+        except Exception as e:
+            c.rollback()
+            if "unique" not in str(e).lower() and "duplicate" not in str(e).lower():
+                c.close()
+                raise
             c.close()
             flash("Ese usuario ya existe.","error")
             return render_template("admin_courier_form.html",repartidor=None)
