@@ -7,7 +7,7 @@
 <div class="orders-table">
 {% for p in pedidos %}
 <a class="order-row" href="{{ url_for('admin_order_detail',order_id=p.id) }}">
-<div class="order-number">#{{ p.id }}</div><div><b>{{ p.customer_name }}</b><small>{{ p.business_name }} · {{ p.customer_phone }}</small></div>
+<div class="order-number">#{{ p.id }}</div><div><b>{{ p.customer_name }}</b><small>{{ p.business_name }} · {{ p.customer_phone }}</small><small>🕐 {{ p.created_at }}</small></div>
 <div class="order-address">{{ p.customer_address }}</div><div class="order-total">${{ "%.2f"|format(p.total) }}</div>
 <div class="order-status {{ p.status }}">{{ statuses[p.status] }}</div><div class="order-arrow">›</div>
 </a>

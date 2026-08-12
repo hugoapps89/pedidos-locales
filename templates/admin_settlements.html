@@ -1,0 +1,96 @@
+{% extends "base.html" %}
+{% block title %}Liquidaciones · Pedidos Locales{% endblock %}
+{% block content %}
+<main class="admin-main">
+  <div class="admin-header">
+    <div>
+      <span class="eyebrow">FINANZAS</span>
+      <h1>Liquidaciones</h1>
+      <p>Administra las comisiones de los negocios y los pagos a la plataforma.</p>
+    </div>
+    <form class="period-form" method="get">
+      <label>Desde<input type="date" name="from" value="{{ start.isoformat() }}"></label>
+      <label>Hasta<input type="date" name="to" value="{{ end.isoformat() }}"></label>
+      <button class="btn primary">Generar corte</button>
+    </form>
+  </div>
+  <div class="metrics settlement-metrics">
+    <div class="metric"><span>🛍️</span><b>${{ "%.2f"|format(total_sales) }}</b><small>Ventas del periodo</small></div>
+    <div class="metric"><span>💰</span><b>${{ "%.2f"|format(total_commission) }}</b><small>Comisión generada</small></div>
+    <div class="metric"><span>💳</span><b>${{ "%.2f"|format(total_paid) }}</b><small>Pagado a plataforma</small></div>
+    <div class="metric"><span>⏳</span><b>${{ "%.2f"|format(total_pending) }}</b><small>Pendiente de pago</small></div>
+  </div>
+  <section class="admin-section settlement-section">
+    <div class="section-title"><div><span class="line"></span><h2>Resumen por negocio</h2></div><span class="muted-small">Corte: {{ start.strftime('%d/%m/%Y') }} — {{ end.strftime('%d/%m/%Y') }}</span></div>
+    <div class="settlement-table">
+      <div class="settlement-row settlement-head"><span>Negocio</span><span>Pedidos</span><span>Ventas</span><span>Comisión</span><span>Pagado</span><span>Pendiente</span><span>Acciones</span></div>
+      {% for n in summary %}
+      <div class="settlement-row">
+        <div><b>{{ n.name }}</b><small>{{ n.category }}</small></div>
+        <span>{{ n.orders }}</span>
+        <span>${{ "%.2f"|format(n.sales) }}</span>
+        <span>${{ "%.2f"|format(n.commission) }}</span>
+        <span class="paid">${{ "%.2f"|format(n.paid) }}</span>
+        <span class="{{ 'pending' if n.pending > 0 else 'paid' }}">${{ "%.2f"|format(n.pending) }}</span>
+        <button type="button" class="btn primary btn-small js-payment" data-id="{{ n.id }}" data-name="{{ n.name|e }}" data-pending="{{ '%.2f'|format(n.pending) }}">Registrar pago</button>
+      </div>
+      {% else %}<div class="empty-box">No hay negocios registrados.</div>{% endfor %}
+    </div>
+  </section>
+  <div class="settlement-grid">
+    <section class="admin-section">
+      <div class="section-title"><div><span class="line"></span><h2>Método de entrega</h2></div></div>
+      {% for d in delivery %}
+      <div class="delivery-summary"><span>{{ '🛵' if d.method == 'Pedidos Locales' else '🏪' }}</span><div><b>{{ d.method }}</b><small>{{ d.orders }} pedidos · ${{ "%.2f"|format(d.delivery_total) }} en envíos</small></div></div>
+      {% else %}<div class="empty-box">Sin pedidos en el periodo.</div>{% endfor %}
+    </section>
+    <section class="admin-section">
+      <div class="section-title"><div><span class="line"></span><h2>Pagos registrados</h2></div></div>
+      {% for p in payments %}
+      <div class="payment-item"><div><b>{{ p.business_name }}</b><small>{{ p.payment_method }} · {{ p.paid_at }}</small></div><strong>${{ "%.2f"|format(p.amount) }}</strong></div>
+      {% else %}<div class="empty-box">Todavía no hay pagos registrados.</div>{% endfor %}
+    </section>
+  </div>
+  <section class="admin-section settlement-section">
+    <div class="section-title"><div><span class="line"></span><h2>Pedidos del periodo</h2></div><a class="btn outline" href="{{ url_for('admin_orders') }}">Ver todos</a></div>
+    <div class="orders-table">
+      <div class="order-row settlement-order-head"><span>Pedido</span><span>Fecha</span><span>Negocio</span><span>Subtotal</span><span>Comisión</span><span>Envío</span></div>
+      {% for p in period_orders %}
+      <a class="order-row settlement-order" href="{{ url_for('admin_order_detail',order_id=p.id) }}"><div class="order-number">#{{ p.id }}</div><div>{{ p.created_at }}</div><div>{{ p.business_name }}</div><div>${{ "%.2f"|format(p.subtotal) }}</div><div>${{ "%.2f"|format(p.commission_amount) }}</div><div>${{ "%.2f"|format(p.delivery_fee) }}</div></a>
+      {% else %}<div class="empty-box">No hay pedidos en el periodo.</div>{% endfor %}
+    </div>
+  </section>
+</main>
+<div class="modal-backdrop" id="paymentModal" hidden>
+  <div class="modal-card settlement-modal">
+    <button type="button" class="modal-close" id="closePayment">×</button>
+    <span class="eyebrow">REGISTRAR PAGO</span>
+    <h2 id="paymentBusiness">Pago a la plataforma</h2>
+    <p class="modal-sub">Pendiente en este corte: <b id="paymentPending">$0.00</b></p>
+    <form method="post" action="{{ url_for('admin_settlement_payment') }}">
+      <input type="hidden" name="business_id" id="paymentBusinessId">
+      <input type="hidden" name="period_start" value="{{ start.isoformat() }}">
+      <input type="hidden" name="period_end" value="{{ end.isoformat() }}">
+      <label>Monto pagado<input type="number" name="amount" id="paymentAmount" min="0.01" step="0.01" required></label>
+      <label>Método<select name="payment_method"><option>Transferencia</option><option>Depósito</option><option>Efectivo</option><option>Otro</option></select></label>
+      <label>Nota <span class="optional">(opcional)</span><textarea name="notes" rows="3" placeholder="Referencia o comentario"></textarea></label>
+      <button class="btn primary full">Guardar pago</button>
+    </form>
+  </div>
+</div>
+<script>
+document.addEventListener('DOMContentLoaded',()=>{
+  const modal=document.getElementById('paymentModal');
+  const close=()=>modal.hidden=true;
+  document.getElementById('closePayment').addEventListener('click',close);
+  modal.addEventListener('click',e=>{if(e.target===modal)close();});
+  document.querySelectorAll('.js-payment').forEach(btn=>btn.addEventListener('click',()=>{
+    document.getElementById('paymentBusinessId').value=btn.dataset.id;
+    document.getElementById('paymentBusiness').textContent=btn.dataset.name;
+    document.getElementById('paymentPending').textContent='$'+Number(btn.dataset.pending).toLocaleString('es-MX',{minimumFractionDigits:2});
+    document.getElementById('paymentAmount').value=Number(btn.dataset.pending)>0?Number(btn.dataset.pending).toFixed(2):'';
+    modal.hidden=false;
+  }));
+});
+</script>
+{% endblock %}

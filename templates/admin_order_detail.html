@@ -3,7 +3,7 @@
 {% block content %}
 <main class="admin-main narrow">
 <a class="back-link" href="{{ url_for('admin_orders') }}">← Todos los pedidos</a>
-<div class="order-detail-head"><div><span class="eyebrow">PEDIDO #{{ pedido.id }}</span><h1>{{ pedido.business_name }}</h1><p>{{ pedido.customer_name }} · {{ pedido.customer_phone }}</p></div><span class="order-status big {{ pedido.status }}">{{ statuses[pedido.status] }}</span></div>
+<div class="order-detail-head"><div><span class="eyebrow">PEDIDO #{{ pedido.id }}</span><h1>{{ pedido.business_name }}</h1><p>{{ pedido.customer_name }} · {{ pedido.customer_phone }} · 🕐 {{ pedido.created_at }}</p></div><span class="order-status big {{ pedido.status }}">{{ statuses[pedido.status] }}</span></div>
 <div class="order-detail-grid">
 <section class="detail-card"><h2>Productos</h2>{% for i in items %}<div class="detail-item"><div><b>{{ i.quantity }} × {{ i.product_name }}</b><small>${{ "%.2f"|format(i.price) }} c/u</small></div><strong>${{ "%.2f"|format(i.subtotal) }}</strong></div>{% endfor %}<div class="detail-total"><span>Productos</span><strong>${{ "%.2f"|format(pedido.subtotal if pedido.subtotal is not none else pedido.total) }}</strong></div>
 <div class="detail-total"><span>Entrega</span><strong>${{ "%.2f"|format(pedido.delivery_fee if pedido.delivery_fee is not none else 0) }}</strong></div>
