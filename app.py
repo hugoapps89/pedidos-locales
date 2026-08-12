@@ -52,19 +52,6 @@ def login_blocked(ip, scope):
         return False
 
     return data["failed"] >= LOGIN_MAX_ATTEMPTS
-    now = time.time()
-    data = login_attempts.get(ip)
-
-    if not data:
-        return False
-
-    # Solo eliminar el registro cuando realmente hubo un bloqueo
-    # y el tiempo de bloqueo ya terminó.
-    if data["blocked_until"] > 0 and now >= data["blocked_until"]:
-        login_attempts.pop(ip, None)
-        return False
-
-    return data["failed"] >= LOGIN_MAX_ATTEMPTS
 
 def register_login_failure(ip, scope):
     now = time.time()
