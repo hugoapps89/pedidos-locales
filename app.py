@@ -641,6 +641,10 @@ def admin_new_orders_count():
         "SELECT COUNT(*) AS c FROM orders WHERE status='nuevo'"
     ).fetchone()
 
+    total = c.execute(
+        "SELECT COUNT(*) AS c FROM orders"
+    ).fetchone()
+
     latest = c.execute(
         "SELECT id FROM orders WHERE status='nuevo' ORDER BY id DESC LIMIT 1"
     ).fetchone()
@@ -650,6 +654,7 @@ def admin_new_orders_count():
     return jsonify(
         ok=True,
         count=row["c"],
+        total=total["c"],
         latest_id=latest["id"] if latest else None
     )
 @app.route("/admin/pedidos/<int:order_id>")
