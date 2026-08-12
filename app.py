@@ -572,10 +572,66 @@ def admin_dashboard():
 @app.route("/admin/pedidos")
 @auth
 def admin_orders():
-    s=request.args.get("status","");c=db()
-    if s in STATUSES:o=c.execute("SELECT o.*,b.name business_name FROM orders o JOIN businesses b ON b.id=o.business_id WHERE o.status=? ORDER BY o.id DESC",(s,)).fetchall()
-    else:o=c.execute("SELECT o.*,b.name business_name FROM orders o JOIN businesses b ON b.id=o.business_id ORDER BY o.id DESC").fetchall()
-    c.close();return render_template("admin_orders.html",pedidos=o,selected_status=s)
+    s = request.args.get("status", "")
+    c = db()
+
+    # Contadores de pedidos por estado
+    status_counts = {}
+
+    for key in STATUSES:
+        row = c.execute(
+            "SELECT COUNT(*) AS c FROM orders WHERE status=?",
+            (key,)
+        ).fetchone()
+        status_counts[key] = row["c"]
+
+    # Total de pedidos
+    total_orders = c.execute(
+        "SELECT COUNT(*) AS c FROM orders"
+    ).fetchone()["c"]
+
+    # Pedidos del filtro seleccionado.
+    # Los nuevos siempre aparecen primero cuando mostramos "Todos".
+    if s in STATUSES:
+        o = c.execute(
+            """
+            SELECT o.*, b.name business_name
+            FROM orders o
+            JOIN businesses b ON b.id=o.business_id
+            WHERE o.status=?
+            ORDER BY o.id DESC
+            """,
+            (s,)
+        ).fetchall()
+    else:
+        o = c.execute(
+            """
+            SELECT o.*, b.name business_name
+            FROM orders o
+            JOIN businesses b ON b.id=o.business_id
+            ORDER BY
+                CASE
+                    WHEN o.status='nuevo' THEN 0
+                    WHEN o.status='preparando' THEN 1
+                    WHEN o.status='camino' THEN 2
+                    WHEN o.status='entregado' THEN 3
+                    WHEN o.status='cancelado' THEN 4
+                    ELSE 5
+                END,
+                o.id DESC
+            """
+        ).fetchall()
+
+    c.close()
+
+    return render_template(
+        "admin_orders.html",
+        pedidos=o,
+        selected_status=s,
+        statuses=STATUSES,
+        status_counts=status_counts,
+        total_orders=total_orders
+    )
 
 @app.route("/admin/pedidos/<int:order_id>")
 @auth

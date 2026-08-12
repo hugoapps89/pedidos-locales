@@ -3,7 +3,21 @@
 {% block content %}
 <main class="admin-main">
 <div class="admin-header"><div><a class="back-link" href="{{ url_for('admin_dashboard') }}">← Administrador</a><h1>Pedidos</h1><p>Consulta y actualiza el estado de cada pedido.</p></div></div>
-<div class="filter-row"><a class="filter {% if not selected_status %}active{% endif %}" href="{{ url_for('admin_orders') }}">Todos</a>{% for key,label in statuses.items() %}<a class="filter {% if selected_status==key %}active{% endif %}" href="{{ url_for('admin_orders',status=key) }}">{{ label }}</a>{% endfor %}</div>
+<div class="filter-row">
+
+<a class="filter {% if not selected_status %}active{% endif %}"
+   href="{{ url_for('admin_orders') }}">
+    📋 Todos <strong>{{ total_orders }}</strong>
+</a>
+
+{% for key,label in statuses.items() %}
+<a class="filter {% if selected_status==key %}active{% endif %}"
+   href="{{ url_for('admin_orders',status=key) }}">
+    {{ label }} <strong>{{ status_counts[key] }}</strong>
+</a>
+{% endfor %}
+
+</div>
 <div class="orders-table">
 {% for p in pedidos %}
 <a class="order-row {% if p.status == 'nuevo' %}order-new{% endif %}"
