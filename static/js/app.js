@@ -1,4 +1,24 @@
 document.addEventListener("DOMContentLoaded", () => {
+
+  const menuToggle=document.getElementById("menuToggle");
+  const mobileMenu=document.getElementById("mobileMenu");
+  const closeMenu=()=>{
+    if(!mobileMenu)return;
+    mobileMenu.classList.remove("open");
+    mobileMenu.setAttribute("aria-hidden","true");
+    if(menuToggle)menuToggle.setAttribute("aria-expanded","false");
+  };
+  if(menuToggle && mobileMenu){
+    menuToggle.addEventListener("click",()=>{
+      const open=!mobileMenu.classList.contains("open");
+      mobileMenu.classList.toggle("open",open);
+      mobileMenu.setAttribute("aria-hidden",open?"false":"true");
+      menuToggle.setAttribute("aria-expanded",open?"true":"false");
+    });
+    mobileMenu.querySelectorAll("[data-menu-close]").forEach(el=>el.addEventListener("click",closeMenu));
+    mobileMenu.querySelectorAll("a").forEach(a=>a.addEventListener("click",closeMenu));
+    document.addEventListener("keydown",e=>{if(e.key==="Escape")closeMenu();});
+  }
   const cart = [];
   const countEls = [document.getElementById("cartCount"), document.getElementById("cartBadge")].filter(Boolean);
   const itemsEl = document.getElementById("cartItems");
