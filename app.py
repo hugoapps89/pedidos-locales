@@ -5,6 +5,7 @@ from flask import Flask, render_template, request, redirect, url_for, session, f
 from flask_wtf.csrf import CSRFProtect, CSRFError
 from werkzeug.utils import secure_filename
 from werkzeug.security import generate_password_hash, check_password_hash
+from werkzeug.middleware.proxy_fix import ProxyFix
 import json
 from datetime import date, datetime, timedelta
 from zoneinfo import ZoneInfo
@@ -27,6 +28,12 @@ if DATABASE_URL.startswith("postgres://"):
     DATABASE_URL="postgresql://"+DATABASE_URL[len("postgres://"):]
 
 app=Flask(__name__)
+app.wsgi_app = ProxyFix(
+    app.wsgi_app,
+    x_for=1,
+    x_proto=1,
+    x_host=1
+)
 app.secret_key=os.environ["SECRET_KEY"]
 csrf=CSRFProtect(app)
 app.config["MAX_CONTENT_LENGTH"]=5*1024*1024
