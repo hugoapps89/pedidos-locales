@@ -9,6 +9,7 @@
       <p>Administra las comisiones de los negocios y los pagos a la plataforma.</p>
     </div>
     <form class="period-form" method="get">
+<input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
       <label>Desde<input type="date" name="from" value="{{ start.isoformat() }}"></label>
       <label>Hasta<input type="date" name="to" value="{{ end.isoformat() }}"></label>
       <button class="btn primary">Generar corte</button>
@@ -68,6 +69,7 @@
     <h2 id="paymentBusiness">Pago a la plataforma</h2>
     <p class="modal-sub">Pendiente en este corte: <b id="paymentPending">$0.00</b></p>
     <form method="post" action="{{ url_for('admin_settlement_payment') }}">
+<input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
       <input type="hidden" name="business_id" id="paymentBusinessId">
       <input type="hidden" name="period_start" value="{{ start.isoformat() }}">
       <input type="hidden" name="period_end" value="{{ end.isoformat() }}">

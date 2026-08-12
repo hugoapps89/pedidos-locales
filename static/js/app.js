@@ -112,7 +112,8 @@ document.addEventListener("DOMContentLoaded", () => {
         items:cart.map(x=>({id:x.id,qty:x.qty}))
       };
       try{
-        const r=await fetch("/pedido/crear",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify(payload)});
+        const csrfToken=document.querySelector('meta[name="csrf-token"]')?.getAttribute("content");
+        const r=await fetch("/pedido/crear",{method:"POST",headers:{"Content-Type":"application/json","X-CSRFToken":csrfToken||""},body:JSON.stringify(payload)});
         const data=await r.json();
         if(!data.ok){err.textContent=data.error||"No se pudo registrar el pedido.";return;}
         window.location.href="/pedido/"+data.order_id+"/confirmado";

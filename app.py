@@ -2,6 +2,7 @@ import os, sqlite3, uuid
 from functools import wraps
 from pathlib import Path
 from flask import Flask, render_template, request, redirect, url_for, session, flash, abort, jsonify
+from flask_wtf.csrf import CSRFProtect, CSRFError
 from werkzeug.utils import secure_filename
 from werkzeug.security import generate_password_hash, check_password_hash
 import json
@@ -26,15 +27,24 @@ if DATABASE_URL.startswith("postgres://"):
     DATABASE_URL="postgresql://"+DATABASE_URL[len("postgres://"):]
 
 app=Flask(__name__)
-app.secret_key=os.environ.get("SECRET_KEY","dev-only-change-this-secret")
+app.secret_key=os.environ["SECRET_KEY"]
+csrf=CSRFProtect(app)
 app.config["MAX_CONTENT_LENGTH"]=5*1024*1024
 ALLOWED={"png","jpg","jpeg","webp","gif"}
-ADMIN_USER=os.environ.get("ADMIN_USER","admin"); ADMIN_PASSWORD=os.environ.get("ADMIN_PASSWORD","admin1234")
+ADMIN_USER=os.environ["ADMIN_USER"]
+ADMIN_PASSWORD=os.environ["ADMIN_PASSWORD"]
 IS_PRODUCTION=os.environ.get("FLASK_ENV","").lower()=="production"
 STATUSES={"nuevo":"🆕 Nuevo","preparando":"👨‍🍳 Preparando","camino":"🛵 En camino","entregado":"✅ Entregado","cancelado":"❌ Cancelado"}
 DEFAULT_DELIVERY_FEE=35.00
 DEFAULT_COMMISSION_RATE=15.00
 LOCAL_TZ=ZoneInfo("America/Merida")
+
+@app.errorhandler(CSRFError)
+def handle_csrf_error(e):
+    if request.path == "/pedido/crear" or request.is_json:
+        return jsonify(ok=False, error="Solicitud no autorizada. Recarga la página e inténtalo de nuevo."), 400
+    return "Solicitud no autorizada. Recarga la página e inténtalo de nuevo.", 400
+
 
 class DBConnection:
     """SQLite localmente; PostgreSQL cuando Render proporciona DATABASE_URL."""

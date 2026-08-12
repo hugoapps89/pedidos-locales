@@ -4,6 +4,7 @@
 <meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
 <title>{% block title %}Pedidos Locales{% endblock %}</title>
 <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+<meta name="csrf-token" content="{{ csrf_token() }}">
 </head>
 <body>
 <header class="topbar">
@@ -30,7 +31,22 @@
 </div>
 {% with messages = get_flashed_messages(with_categories=true) %}{% if messages %}<div class="flash-wrap">{% for category,message in messages %}<div class="flash {{ category }}">{{ message }}</div>{% endfor %}</div>{% endif %}{% endwith %}
 {% block content %}{% endblock %}
-<footer>Pedidos Locales · Flask + PostgreSQL</footer>
+<footer class="site-footer">
+    <div>¿Quieres que tu negocio aparezca en Pedidos Locales?</div>
+    <a href="tel:9995131376">📲 999 513 1376</a>
+</footer>
+<script>
+document.addEventListener("DOMContentLoaded",()=>{
+  const token=document.querySelector('meta[name="csrf-token"]')?.getAttribute('content');
+  if(!token)return;
+  document.querySelectorAll('form[method="post"],form[method="POST"]').forEach(form=>{
+    if(form.querySelector('input[name="csrf_token"]'))return;
+    const input=document.createElement('input');
+    input.type='hidden'; input.name='csrf_token'; input.value=token;
+    form.prepend(input);
+  });
+});
+</script>
 <script src="{{ url_for('static', filename='js/app.js') }}"></script>
 </body>
 </html>

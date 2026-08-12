@@ -1,5 +1,6 @@
 <!doctype html><html lang="es"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Acceso repartidor</title><link rel="stylesheet" href="{{ url_for('static',filename='css/style.css') }}"></head>
 <body class="admin-bg"><div class="login-box courier-login"><div class="login-logo">🛵</div><span class="eyebrow">PEDIDOS LOCALES</span><h1>Acceso repartidor</h1><p>Consulta tus entregas y actualiza su estado.</p>
 {% with messages=get_flashed_messages(with_categories=true) %}{% for c,m in messages %}<div class="flash {{ c }}">{{ m }}</div>{% endfor %}{% endwith %}
-<form method="post"><label>Usuario<input name="username" required autofocus></label><label>Contraseña<input name="password" type="password" required></label><button class="btn primary full">Entrar</button></form>
-<small>Prueba: <b>carlos</b> / <b>1234</b></small><a class="back-link" href="{{ url_for('inicio') }}">← Volver a la tienda</a></div></body></html>
+<form method="post">
+<input type="hidden" name="csrf_token" value="{{ csrf_token() }}"><label>Usuario<input name="username" required autofocus></label><label>Contraseña<input name="password" type="password" required></label><button class="btn primary full">Entrar</button></form>
+<a class="back-link" href="{{ url_for('inicio') }}">← Volver a la tienda</a></div></body></html>

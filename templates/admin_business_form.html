@@ -2,7 +2,8 @@
 {% block title %}{{ 'Editar' if negocio else 'Nuevo' }} negocio{% endblock %}
 {% block content %}
 <main class="admin-main narrow"><a class="back-link" href="{{ url_for('admin_dashboard') }}">← Volver al administrador</a><div class="form-header"><span class="eyebrow">NEGOCIO</span><h1>{{ 'Editar negocio' if negocio else 'Crear negocio' }}</h1><p>Estos datos aparecerán en la página pública.</p></div>
-<form class="admin-form" method="post" enctype="multipart/form-data"><div class="form-grid">
+<form class="admin-form" method="post" enctype="multipart/form-data">
+<input type="hidden" name="csrf_token" value="{{ csrf_token() }}"><div class="form-grid">
 <label>Nombre del negocio *<input name="name" required value="{{ negocio.name if negocio else '' }}" placeholder="Ej. Taquería El Sabor"></label>
 <label>Categoría *<input name="category" required value="{{ negocio.category if negocio else '' }}" placeholder="Comida"></label>
 <label>Calificación<input name="rating" type="number" step="0.1" min="0" max="5" value="{{ negocio.rating if negocio else 5 }}"></label>
