@@ -725,19 +725,19 @@ def courier_login():
         c.close()
 
         if valid:
-         clear_login_failures(ip, "courier")
+            clear_login_failures(ip, "courier")
 
-        session.clear()
-        session["courier_logged"] = True
-        session["courier_id"] = courier["id"]
-        session["courier_name"] = courier["name"]
+            session.clear()
+            session["courier_logged"] = True
+            session["courier_id"] = courier["id"]
+            session["courier_name"] = courier["name"]
 
-        return redirect(
-            request.args.get("next") or url_for("courier_dashboard")
-        )
+            return redirect(
+                request.args.get("next") or url_for("courier_dashboard")
+            )
 
-    register_login_failure(ip, "courier")
-    flash("Usuario o contraseña incorrectos.", "error")
+        register_login_failure(ip, "courier")
+        flash("Usuario o contraseña incorrectos.", "error")
 
     return render_template("courier_login.html")
 
