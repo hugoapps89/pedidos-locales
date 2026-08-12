@@ -30,7 +30,8 @@ ALLOWED={"png","jpg","jpeg","webp","gif"}
 ADMIN_USER=os.environ.get("ADMIN_USER","admin"); ADMIN_PASSWORD=os.environ.get("ADMIN_PASSWORD","admin1234")
 IS_PRODUCTION=os.environ.get("FLASK_ENV","").lower()=="production"
 STATUSES={"nuevo":"🆕 Nuevo","preparando":"👨‍🍳 Preparando","camino":"🛵 En camino","entregado":"✅ Entregado","cancelado":"❌ Cancelado"}
-DELIVERY_FEE=35.00
+DEFAULT_DELIVERY_FEE=35.00
+DEFAULT_COMMISSION_RATE=15.00
 
 class DBConnection:
     """SQLite localmente; PostgreSQL cuando Render proporciona DATABASE_URL."""
@@ -80,6 +81,14 @@ def db():
 
 def init_db():
     c=db()
+    if c.postgres:
+        c.execute("CREATE TABLE IF NOT EXISTS platform_settings(key TEXT PRIMARY KEY,value TEXT NOT NULL)")
+    else:
+        c.execute("CREATE TABLE IF NOT EXISTS platform_settings(key TEXT PRIMARY KEY,value TEXT NOT NULL)")
+    if c.execute("SELECT 1 FROM platform_settings WHERE key='commission_rate'").fetchone() is None:
+        c.execute("INSERT INTO platform_settings(key,value) VALUES(?,?)",("commission_rate",str(DEFAULT_COMMISSION_RATE)))
+    if c.execute("SELECT 1 FROM platform_settings WHERE key='commission_enabled'").fetchone() is None:
+        c.execute("INSERT INTO platform_settings(key,value) VALUES(?,?)",("commission_enabled","1"))
 
     if c.postgres:
         c.executescript("""
@@ -123,14 +132,23 @@ def init_db():
             ("courier_id","INTEGER"),
             ("picked_up_at","TIMESTAMP"),
             ("delivered_at","TIMESTAMP"),
+            ("subtotal","DOUBLE PRECISION NOT NULL DEFAULT 0"),
+            ("delivery_fee","DOUBLE PRECISION NOT NULL DEFAULT 0"),
+            ("commission_rate","DOUBLE PRECISION NOT NULL DEFAULT 15"),
+            ("commission_amount","DOUBLE PRECISION NOT NULL DEFAULT 0"),
         ]:
             c.execute(f"ALTER TABLE orders ADD COLUMN IF NOT EXISTS {col} {typ}")
+        for col, typ in [
+            ("delivery_enabled","INTEGER DEFAULT 1"),
+            ("delivery_fee","DOUBLE PRECISION DEFAULT 35"),
+        ]:
+            c.execute(f"ALTER TABLE businesses ADD COLUMN IF NOT EXISTS {col} {typ}")
 
     else:
         c.executescript("""
-        CREATE TABLE IF NOT EXISTS businesses(id INTEGER PRIMARY KEY AUTOINCREMENT,name TEXT NOT NULL,category TEXT NOT NULL,description TEXT DEFAULT '',rating REAL DEFAULT 5,delivery_time TEXT DEFAULT '20-30 min',phone TEXT DEFAULT '',address TEXT DEFAULT '',featured INTEGER DEFAULT 0,image TEXT DEFAULT '',created_at TEXT DEFAULT CURRENT_TIMESTAMP);
+        CREATE TABLE IF NOT EXISTS businesses(id INTEGER PRIMARY KEY AUTOINCREMENT,name TEXT NOT NULL,category TEXT NOT NULL,description TEXT DEFAULT '',rating REAL DEFAULT 5,delivery_time TEXT DEFAULT '20-30 min',phone TEXT DEFAULT '',address TEXT DEFAULT '',featured INTEGER DEFAULT 0,image TEXT DEFAULT '',delivery_enabled INTEGER DEFAULT 1,delivery_fee REAL DEFAULT 35,created_at TEXT DEFAULT CURRENT_TIMESTAMP);
         CREATE TABLE IF NOT EXISTS products(id INTEGER PRIMARY KEY AUTOINCREMENT,business_id INTEGER NOT NULL,name TEXT NOT NULL,description TEXT DEFAULT '',price REAL NOT NULL DEFAULT 0,category TEXT DEFAULT 'General',image TEXT DEFAULT '',active INTEGER DEFAULT 1,created_at TEXT DEFAULT CURRENT_TIMESTAMP,FOREIGN KEY(business_id) REFERENCES businesses(id) ON DELETE CASCADE);
-        CREATE TABLE IF NOT EXISTS orders(id INTEGER PRIMARY KEY AUTOINCREMENT,business_id INTEGER NOT NULL,customer_name TEXT NOT NULL,customer_phone TEXT NOT NULL,customer_address TEXT NOT NULL,notes TEXT DEFAULT '',payment_method TEXT DEFAULT 'Efectivo',total REAL NOT NULL DEFAULT 0,status TEXT NOT NULL DEFAULT 'nuevo',created_at TEXT DEFAULT CURRENT_TIMESTAMP,FOREIGN KEY(business_id) REFERENCES businesses(id) ON DELETE CASCADE);
+        CREATE TABLE IF NOT EXISTS orders(id INTEGER PRIMARY KEY AUTOINCREMENT,business_id INTEGER NOT NULL,customer_name TEXT NOT NULL,customer_phone TEXT NOT NULL,customer_address TEXT NOT NULL,notes TEXT DEFAULT '',payment_method TEXT DEFAULT 'Efectivo',total REAL NOT NULL DEFAULT 0,subtotal REAL NOT NULL DEFAULT 0,delivery_fee REAL NOT NULL DEFAULT 0,commission_rate REAL NOT NULL DEFAULT 15,commission_amount REAL NOT NULL DEFAULT 0,status TEXT NOT NULL DEFAULT 'nuevo',created_at TEXT DEFAULT CURRENT_TIMESTAMP,FOREIGN KEY(business_id) REFERENCES businesses(id) ON DELETE CASCADE);
         CREATE TABLE IF NOT EXISTS order_items(id INTEGER PRIMARY KEY AUTOINCREMENT,order_id INTEGER NOT NULL,product_id INTEGER,product_name TEXT NOT NULL,price REAL NOT NULL,quantity INTEGER NOT NULL,subtotal REAL NOT NULL,FOREIGN KEY(order_id) REFERENCES orders(id) ON DELETE CASCADE);
         CREATE TABLE IF NOT EXISTS couriers(id INTEGER PRIMARY KEY AUTOINCREMENT,name TEXT NOT NULL,phone TEXT NOT NULL,username TEXT NOT NULL UNIQUE,password TEXT NOT NULL,active INTEGER DEFAULT 1,created_at TEXT DEFAULT CURRENT_TIMESTAMP);
         """)
@@ -138,6 +156,11 @@ def init_db():
         if "courier_id" not in order_columns: c.execute("ALTER TABLE orders ADD COLUMN courier_id INTEGER")
         if "picked_up_at" not in order_columns: c.execute("ALTER TABLE orders ADD COLUMN picked_up_at TEXT")
         if "delivered_at" not in order_columns: c.execute("ALTER TABLE orders ADD COLUMN delivered_at TEXT")
+        business_columns={row["name"] for row in c.execute("PRAGMA table_info(businesses)").fetchall()}
+        if "delivery_enabled" not in business_columns: c.execute("ALTER TABLE businesses ADD COLUMN delivery_enabled INTEGER DEFAULT 1")
+        if "delivery_fee" not in business_columns: c.execute("ALTER TABLE businesses ADD COLUMN delivery_fee REAL DEFAULT 35")
+        for col, typ in [("subtotal","REAL NOT NULL DEFAULT 0"),("delivery_fee","REAL NOT NULL DEFAULT 0"),("commission_rate","REAL NOT NULL DEFAULT 15"),("commission_amount","REAL NOT NULL DEFAULT 0")]:
+            if col not in order_columns: c.execute(f"ALTER TABLE orders ADD COLUMN {col} {typ}")
 
     if c.execute("SELECT COUNT(*) AS c FROM businesses").fetchone()["c"]==0:
         c.execute("INSERT INTO businesses(name,category,description,rating,delivery_time,address,featured) VALUES(?,?,?,?,?,?,1)",
@@ -284,6 +307,18 @@ def helpers():
         "image_url": image_url
     }
 
+def get_setting(c, key, default):
+    row=c.execute("SELECT value FROM platform_settings WHERE key=?",(key,)).fetchone()
+    if not row:
+        return default
+    return row["value"]
+
+def platform_commission(c):
+    enabled=get_setting(c,"commission_enabled","1")=="1"
+    try: rate=float(get_setting(c,"commission_rate",str(DEFAULT_COMMISSION_RATE)))
+    except (TypeError,ValueError): rate=DEFAULT_COMMISSION_RATE
+    return enabled, max(0.0,min(rate,100.0))
+
 @app.route("/")
 def inicio():
     c=db(); n=c.execute("SELECT b.*,COUNT(p.id) product_count FROM businesses b LEFT JOIN products p ON p.business_id=b.id AND p.active=1 GROUP BY b.id ORDER BY b.featured DESC,b.name").fetchall(); c.close()
@@ -293,8 +328,10 @@ def inicio():
 def negocio(negocio_id):
     c=db(); n=c.execute("SELECT * FROM businesses WHERE id=?",(negocio_id,)).fetchone()
     if not n:c.close();abort(404)
-    p=c.execute("SELECT * FROM products WHERE business_id=? AND active=1 ORDER BY category,name",(negocio_id,)).fetchall(); c.close()
-    return render_template("negocio.html",negocio=dict(n),productos=p)
+    p=c.execute("SELECT * FROM products WHERE business_id=? AND active=1 ORDER BY category,name",(negocio_id,)).fetchall()
+    commission_enabled, commission_rate=platform_commission(c)
+    c.close()
+    return render_template("negocio.html",negocio=dict(n),productos=p,commission_enabled=commission_enabled,commission_rate=commission_rate)
 
 @app.post("/pedido/crear")
 def crear_pedido():
@@ -314,18 +351,22 @@ def crear_pedido():
         if not p:continue
         sub=float(p["price"])*qty; total+=sub; clean.append((p["id"],p["name"],float(p["price"]),qty,sub))
     if not clean:c.close();return jsonify(ok=False,error="No hay productos válidos."),400
-    delivery_fee=DELIVERY_FEE
-    grand_total=total+delivery_fee
+    delivery_enabled=bool(business["delivery_enabled"])
+    try: delivery_fee=float(business["delivery_fee"] or 0) if delivery_enabled else 0.0
+    except (TypeError,ValueError): delivery_fee=DEFAULT_DELIVERY_FEE if delivery_enabled else 0.0
+    commission_enabled, commission_rate=platform_commission(c)
+    commission_amount=round(total*commission_rate/100,2) if commission_enabled else 0.0
+    grand_total=round(total+delivery_fee+commission_amount,2)
     if c.postgres:
         cur=c.execute(
-            "INSERT INTO orders(business_id,customer_name,customer_phone,customer_address,notes,payment_method,total,status) VALUES(?,?,?,?,?,?,?,'nuevo') RETURNING id",
-            (bid,name,phone,address,notes,payment,grand_total)
+            "INSERT INTO orders(business_id,customer_name,customer_phone,customer_address,notes,payment_method,total,subtotal,delivery_fee,commission_rate,commission_amount,status) VALUES(?,?,?,?,?,?,?,?,?,?,?,'nuevo') RETURNING id",
+            (bid,name,phone,address,notes,payment,grand_total,total,delivery_fee,commission_rate,commission_amount)
         )
         oid=cur.fetchone()["id"]
     else:
         cur=c.execute(
-            "INSERT INTO orders(business_id,customer_name,customer_phone,customer_address,notes,payment_method,total,status) VALUES(?,?,?,?,?,?,?,'nuevo')",
-            (bid,name,phone,address,notes,payment,grand_total)
+            "INSERT INTO orders(business_id,customer_name,customer_phone,customer_address,notes,payment_method,total,subtotal,delivery_fee,commission_rate,commission_amount,status) VALUES(?,?,?,?,?,?,?,?,?,?,?,'nuevo')",
+            (bid,name,phone,address,notes,payment,grand_total,total,delivery_fee,commission_rate,commission_amount)
         )
         oid=cur.lastrowid
 
@@ -333,7 +374,7 @@ def crear_pedido():
         "INSERT INTO order_items(order_id,product_id,product_name,price,quantity,subtotal) VALUES(?,?,?,?,?,?)",
         [(oid,*x) for x in clean]
     )
-    c.commit();c.close();return jsonify(ok=True,order_id=oid,subtotal=total,delivery_fee=delivery_fee,total=grand_total)
+    c.commit();c.close();return jsonify(ok=True,order_id=oid,subtotal=total,delivery_fee=delivery_fee,commission_rate=commission_rate,commission_amount=commission_amount,total=grand_total)
 
 @app.route("/pedido/<int:order_id>/estado")
 def pedido_estado(order_id):
@@ -598,14 +639,37 @@ def courier_order_status(order_id):
     flash("Pedido actualizado." if changed else "No se pudo actualizar el pedido.","success" if changed else "error")
     return redirect(url_for("courier_dashboard"))
 
+@app.route("/admin/configuracion",methods=["GET","POST"])
+@auth
+def admin_configuracion():
+    c=db()
+    if request.method=="POST":
+        try:
+            rate=float(request.form.get("commission_rate","15") or 0)
+        except ValueError:
+            rate=DEFAULT_COMMISSION_RATE
+        rate=max(0,min(rate,100))
+        enabled="1" if request.form.get("commission_enabled") else "0"
+        c.execute("UPDATE platform_settings SET value=? WHERE key='commission_rate'",(str(rate),))
+        c.execute("UPDATE platform_settings SET value=? WHERE key='commission_enabled'",(enabled,))
+        c.commit()
+        c.close()
+        flash("Configuración de comisiones actualizada.","success")
+        return redirect(url_for("admin_configuracion"))
+    enabled, rate=platform_commission(c)
+    c.close()
+    return render_template("admin_settings.html",commission_enabled=enabled,commission_rate=rate)
+
 # Business and product admin
 @app.route("/admin/negocios/nuevo",methods=["GET","POST"])
 @auth
 def admin_business_new():
     if request.method=="POST":
-        name=request.form.get("name","").strip();cat=request.form.get("category","").strip();desc=request.form.get("description","").strip();rating=request.form.get("rating","5") or "5";dt=request.form.get("delivery_time","20-30 min").strip();phone=request.form.get("phone","").strip();addr=request.form.get("address","").strip();featured=1 if request.form.get("featured") else 0;image=save_image(request.files.get("image"))
+        name=request.form.get("name","").strip();cat=request.form.get("category","").strip();desc=request.form.get("description","").strip();rating=request.form.get("rating","5") or "5";dt=request.form.get("delivery_time","20-30 min").strip();phone=request.form.get("phone","").strip();addr=request.form.get("address","").strip();featured=1 if request.form.get("featured") else 0;image=save_image(request.files.get("image"));delivery_enabled=1 if request.form.get("delivery_enabled") else 0
+        try: delivery_fee=float(request.form.get("delivery_fee","35") or 0)
+        except ValueError: delivery_fee=DEFAULT_DELIVERY_FEE
         if not name or not cat:flash("Nombre y categoría son obligatorios.","error");return render_template("admin_business_form.html",negocio=None)
-        c=db();c.execute("INSERT INTO businesses(name,category,description,rating,delivery_time,phone,address,featured,image) VALUES(?,?,?,?,?,?,?,?,?)",(name,cat,desc,float(rating),dt,phone,addr,featured,image));c.commit();c.close();flash("Negocio creado.","success");return redirect(url_for("admin_dashboard"))
+        c=db();c.execute("INSERT INTO businesses(name,category,description,rating,delivery_time,phone,address,featured,image,delivery_enabled,delivery_fee) VALUES(?,?,?,?,?,?,?,?,?,?,?)",(name,cat,desc,float(rating),dt,phone,addr,featured,image,delivery_enabled,delivery_fee));c.commit();c.close();flash("Negocio creado.","success");return redirect(url_for("admin_dashboard"))
     return render_template("admin_business_form.html",negocio=None)
 
 @app.route("/admin/negocios/<int:business_id>/editar",methods=["GET","POST"])
@@ -614,9 +678,11 @@ def admin_business_edit(business_id):
     c=db();n=c.execute("SELECT * FROM businesses WHERE id=?",(business_id,)).fetchone();c.close()
     if not n:abort(404)
     if request.method=="POST":
-        name=request.form.get("name","").strip();cat=request.form.get("category","").strip();desc=request.form.get("description","").strip();rating=request.form.get("rating","5") or "5";dt=request.form.get("delivery_time","20-30 min").strip();phone=request.form.get("phone","").strip();addr=request.form.get("address","").strip();featured=1 if request.form.get("featured") else 0;ni=save_image(request.files.get("image"));image=ni or n["image"]
+        name=request.form.get("name","").strip();cat=request.form.get("category","").strip();desc=request.form.get("description","").strip();rating=request.form.get("rating","5") or "5";dt=request.form.get("delivery_time","20-30 min").strip();phone=request.form.get("phone","").strip();addr=request.form.get("address","").strip();featured=1 if request.form.get("featured") else 0;ni=save_image(request.files.get("image"));image=ni or n["image"];delivery_enabled=1 if request.form.get("delivery_enabled") else 0
+        try: delivery_fee=float(request.form.get("delivery_fee","35") or 0)
+        except ValueError: delivery_fee=DEFAULT_DELIVERY_FEE
         if not name or not cat:flash("Nombre y categoría son obligatorios.","error");return render_template("admin_business_form.html",negocio=n)
-        c=db();c.execute("UPDATE businesses SET name=?,category=?,description=?,rating=?,delivery_time=?,phone=?,address=?,featured=?,image=? WHERE id=?",(name,cat,desc,float(rating),dt,phone,addr,featured,image,business_id));c.commit();c.close();flash("Negocio actualizado.","success");return redirect(url_for("admin_dashboard"))
+        c=db();c.execute("UPDATE businesses SET name=?,category=?,description=?,rating=?,delivery_time=?,phone=?,address=?,featured=?,image=?,delivery_enabled=?,delivery_fee=? WHERE id=?",(name,cat,desc,float(rating),dt,phone,addr,featured,image,delivery_enabled,delivery_fee,business_id));c.commit();c.close();flash("Negocio actualizado.","success");return redirect(url_for("admin_dashboard"))
     return render_template("admin_business_form.html",negocio=n)
 
 @app.post("/admin/negocios/<int:business_id>/eliminar")

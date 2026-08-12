@@ -1,21 +1,31 @@
 document.addEventListener("DOMContentLoaded", () => {
   const cart = [];
-  const DELIVERY_FEE = 35;
   const countEls = [document.getElementById("cartCount"), document.getElementById("cartBadge")].filter(Boolean);
   const itemsEl = document.getElementById("cartItems");
   const totalEl = document.getElementById("cartTotal");
   const subtotalEl = document.getElementById("cartSubtotal");
   const checkoutSubtotal = document.getElementById("checkoutSubtotal");
   const checkoutBtn = document.getElementById("checkoutBtn");
-  const money = n => "$" + n.toFixed(2);
+  const money = n => "$" + Number(n).toFixed(2);
 
-  function total() { return cart.reduce((s,x)=>s+x.price*x.qty,0); }
+  const config = window.NEGOCIO || {};
+  const deliveryFee = config.deliveryEnabled ? Number(config.deliveryFee || 0) : 0;
+  const commissionRate = config.commissionEnabled ? Number(config.commissionRate || 0) : 0;
+
+  function subtotal() { return cart.reduce((s,x)=>s+x.price*x.qty,0); }
+  function commission() { return subtotal() * commissionRate / 100; }
+  function grandTotal() { return subtotal() + deliveryFee + commission(); }
 
   function renderCart() {
     const qty = cart.reduce((s,x)=>s+x.qty,0);
     countEls.forEach(el=>el.textContent=qty);
-    if(subtotalEl) subtotalEl.textContent=money(total());
-    if(totalEl) totalEl.textContent=money(total()+DELIVERY_FEE);
+    const sub=subtotal(), com=commission(), total=grandTotal();
+    if(subtotalEl) subtotalEl.textContent=money(sub);
+    const commissionEl=document.getElementById("commissionDisplay");
+    if(commissionEl) commissionEl.textContent=money(com);
+    const checkoutCommission=document.getElementById("checkoutCommission");
+    if(checkoutCommission) checkoutCommission.textContent=money(com);
+    if(totalEl) totalEl.textContent=money(total);
     if(checkoutBtn) checkoutBtn.disabled=cart.length===0;
     if(!itemsEl) return;
     if(!cart.length){itemsEl.innerHTML='<p class="empty">Aún no agregas productos.</p>';return;}
@@ -61,8 +71,13 @@ document.addEventListener("DOMContentLoaded", () => {
   if(checkoutBtn && modal && form){
     checkoutBtn.addEventListener("click",()=>{
       if(!cart.length)return;
-      if(checkoutSubtotal) checkoutSubtotal.textContent=money(total());
-      checkoutTotal.textContent=money(total()+DELIVERY_FEE);
+      const sub=subtotal(), com=commission();
+      if(checkoutSubtotal) checkoutSubtotal.textContent=money(sub);
+      const checkoutDeliveryFee=document.getElementById("checkoutDeliveryFee");
+      if(checkoutDeliveryFee) checkoutDeliveryFee.textContent=money(deliveryFee);
+      const checkoutCommission=document.getElementById("checkoutCommission");
+      if(checkoutCommission) checkoutCommission.textContent=money(com);
+      checkoutTotal.textContent=money(grandTotal());
       modal.classList.remove("hidden");
     });
     close.addEventListener("click",()=>modal.classList.add("hidden"));

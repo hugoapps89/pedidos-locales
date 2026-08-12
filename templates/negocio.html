@@ -21,7 +21,11 @@
 <aside class="order-panel">
 <div class="order-head"><h2>Tu pedido</h2><span id="cartBadge">0</span></div>
 <div id="cartItems" class="cart-items"><p class="empty">Aún no agregas productos.</p></div>
-<div class="price-breakdown"><div><span>Productos</span><b id="cartSubtotal">$0.00</b></div><div><span>Entrega</span><b>$35.00</b></div></div>
+<div class="price-breakdown">
+<div><span>Productos</span><b id="cartSubtotal">$0.00</b></div>
+{% if negocio.delivery_enabled %}<div id="deliveryRow"><span>Entrega</span><b id="deliveryFeeDisplay">${{ "%.2f"|format(negocio.delivery_fee or 0) }}</b></div>{% endif %}
+{% if commission_enabled %}<div><span>Comisión de plataforma</span><b id="commissionDisplay">$0.00</b></div>{% endif %}
+</div>
 <div class="total-row"><span>Total</span><strong id="cartTotal">$0.00</strong></div>
 <button id="checkoutBtn" class="btn whatsapp" disabled>🛒 Continuar pedido</button>
 <div class="secure">🔒 <span><b>Pedido seguro</b><small>Confirma tus datos antes de enviarlo.</small></span></div>
@@ -40,7 +44,10 @@
 <label>Dirección de entrega<textarea name="address" required rows="2" placeholder="Calle, número, fraccionamiento..."></textarea></label>
 <label>Forma de pago<select name="payment_method"><option>Efectivo</option><option>Transferencia</option><option>Tarjeta al entregar</option></select></label>
 <label>Notas <span class="optional">(opcional)</span><textarea name="notes" rows="2" placeholder="Referencias, indicaciones..."></textarea></label>
-<div class="checkout-breakdown"><div><span>Productos</span><b id="checkoutSubtotal">$0.00</b></div><div><span>Entrega</span><b>$35.00</b></div><div class="checkout-total"><span>Total</span><strong id="checkoutTotal">$0.00</strong></div></div>
+<div class="checkout-breakdown"><div><span>Productos</span><b id="checkoutSubtotal">$0.00</b></div>
+{% if negocio.delivery_enabled %}<div><span>Entrega</span><b id="checkoutDeliveryFee">${{ "%.2f"|format(negocio.delivery_fee or 0) }}</b></div>{% endif %}
+{% if commission_enabled %}<div><span>Comisión de plataforma</span><b id="checkoutCommission">$0.00</b></div>{% endif %}
+<div class="checkout-total"><span>Total</span><strong id="checkoutTotal">$0.00</strong></div></div>
 <button class="btn primary full" type="submit">✓ Confirmar pedido</button>
 <div id="checkoutError" class="checkout-error"></div>
 </form>
@@ -51,7 +58,11 @@
 window.NEGOCIO = {
   id: {{ negocio["id"]|int }},
   name: {{ negocio["name"]|tojson }},
-  phone: {{ negocio["phone"]|tojson }}
+  phone: {{ negocio["phone"]|tojson }},
+  deliveryEnabled: {{ negocio["delivery_enabled"]|int|tojson }},
+  deliveryFee: {{ (negocio["delivery_fee"] or 0)|float|tojson }},
+  commissionEnabled: {{ commission_enabled|tojson }},
+  commissionRate: {{ commission_rate|float|tojson }}
 };
 </script>
 {% endblock %}

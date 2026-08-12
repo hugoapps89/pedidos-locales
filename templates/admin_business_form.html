@@ -13,5 +13,11 @@
 <label>Fotografía del negocio<input name="image" type="file" accept=".png,.jpg,.jpeg,.webp,.gif"></label>
 {% if negocio and negocio.image %}<img class="form-preview" src="{{ image_url(negocio.image) }}" alt="Imagen actual">{% endif %}
 <label class="check"><input name="featured" type="checkbox" {% if negocio and negocio.featured %}checked{% endif %}> Mostrar como negocio destacado</label>
+<div class="form-section">
+<h3>🚚 Configuración de envío</h3>
+<p class="form-help">Puedes activar o desactivar el envío para este negocio y definir su costo.</p>
+<label class="check"><input id="delivery_enabled" name="delivery_enabled" type="checkbox" {% if not negocio or negocio.delivery_enabled %}checked{% endif %}> Ofrecer envío a domicilio</label>
+<label>Costo de envío <input id="delivery_fee" name="delivery_fee" type="number" min="0" step="0.01" value="{{ '%.2f'|format(negocio.delivery_fee if negocio and negocio.delivery_fee is not none else 35) }}"></label>
+</div>
 <div class="form-actions"><a class="btn ghost" href="{{ url_for('admin_dashboard') }}">Cancelar</a><button class="btn primary">Guardar negocio</button></div></form></main>
 {% endblock %}

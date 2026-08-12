@@ -28,3 +28,10 @@ Repartidor:
 http://127.0.0.1:5000/repartidor/login
 carlos / 1234
 ana / 1234
+
+
+V7 - Configuración comercial
+- Comisión de plataforma configurable desde /admin/configuracion (15% por defecto).
+- Envío configurable por negocio: activar/desactivar y definir precio.
+- El cliente ve subtotal, comisión, envío y total.
+- Los pedidos guardan los valores históricos de subtotal, envío y comisión.

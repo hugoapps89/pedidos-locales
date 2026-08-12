@@ -1,0 +1,23 @@
+{% extends "base.html" %}
+{% block title %}Configuración · Pedidos Locales{% endblock %}
+{% block content %}
+<main class="admin-main narrow">
+<a class="back-link" href="{{ url_for('admin_dashboard') }}">← Volver al administrador</a>
+<div class="form-header"><span class="eyebrow">CONFIGURACIÓN</span><h1>Comisiones de Pedidos Locales</h1><p>Define la comisión que se aplica a los pedidos. El costo de envío se configura individualmente en cada negocio.</p></div>
+<form class="admin-form" method="post">
+<div class="form-section">
+<h3>💰 Comisión de plataforma</h3>
+<p class="form-help">La comisión se calcula sobre el subtotal de productos, nunca sobre el envío.</p>
+<label class="check"><input name="commission_enabled" type="checkbox" {% if commission_enabled %}checked{% endif %}> Activar comisión</label>
+<label>Porcentaje de comisión
+<input name="commission_rate" type="number" min="0" max="100" step="0.01" value="{{ '%.2f'|format(commission_rate) }}"> </label>
+</div>
+<div class="detail-card" style="margin-top:16px">
+<h3>Ejemplo</h3>
+<p>En un pedido de <b>$200.00</b> con envío de <b>$35.00</b> y comisión del <b>{{ '%.2f'|format(commission_rate) }}%</b>:</p>
+<p>Comisión: <b>${{ '%.2f'|format(200*commission_rate/100) }}</b> · Total del cliente: <b>${{ '%.2f'|format(200+35+200*commission_rate/100) }}</b></p>
+</div>
+<div class="form-actions"><a class="btn ghost" href="{{ url_for('admin_dashboard') }}">Cancelar</a><button class="btn primary">Guardar configuración</button></div>
+</form>
+</main>
+{% endblock %}
