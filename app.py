@@ -302,9 +302,15 @@ def init_db():
 
 def auth(f):
     @wraps(f)
-    def w(*a,**k):
-        if not session.get("admin_logged"): return redirect(url_for("admin_login",next=request.path))
-        return f(*a,**k)
+    def w(*a, **k):
+        # Un repartidor nunca puede acceder a rutas administrativas
+        if session.get("courier_logged"):
+            abort(403)
+
+        if not session.get("admin_logged"):
+            return redirect(url_for("admin_login", next=request.path))
+
+        return f(*a, **k)
     return w
 
 def save_image(file):
@@ -528,7 +534,9 @@ def admin_login():
 
         if username == ADMIN_USER and password == ADMIN_PASSWORD:
             clear_login_failures(ip, "admin")
+            session.clear()
             session["admin_logged"] = True
+
             return redirect(
                 request.args.get("next") or url_for("admin_dashboard")
             )
@@ -670,10 +678,15 @@ def admin_assign_courier(order_id):
 
 def courier_auth(f):
     @wraps(f)
-    def w(*a,**k):
+    def w(*a, **k):
+        # Un administrador no puede usar las rutas de repartidor
+        if session.get("admin_logged"):
+            abort(403)
+
         if not session.get("courier_logged"):
-            return redirect(url_for("courier_login",next=request.path))
-        return f(*a,**k)
+            return redirect(url_for("courier_login", next=request.path))
+
+        return f(*a, **k)
     return w
 
 @app.route("/repartidor/login", methods=["GET","POST"])
@@ -705,16 +718,19 @@ def courier_login():
         c.close()
 
         if valid:
-            clear_login_failures(ip, "courier")
-            session["courier_logged"] = True
-            session["courier_id"] = courier["id"]
-            session["courier_name"] = courier["name"]
-            return redirect(
-                request.args.get("next") or url_for("courier_dashboard")
-            )
+         clear_login_failures(ip, "courier")
 
-        register_login_failure(ip, "courier")
-        flash("Usuario o contraseña incorrectos.", "error")
+        session.clear()
+        session["courier_logged"] = True
+        session["courier_id"] = courier["id"]
+        session["courier_name"] = courier["name"]
+
+        return redirect(
+            request.args.get("next") or url_for("courier_dashboard")
+        )
+
+    register_login_failure(ip, "courier")
+    flash("Usuario o contraseña incorrectos.", "error")
 
     return render_template("courier_login.html")
 
