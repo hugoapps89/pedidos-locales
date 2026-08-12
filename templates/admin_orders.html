@@ -6,10 +6,20 @@
 <div class="filter-row"><a class="filter {% if not selected_status %}active{% endif %}" href="{{ url_for('admin_orders') }}">Todos</a>{% for key,label in statuses.items() %}<a class="filter {% if selected_status==key %}active{% endif %}" href="{{ url_for('admin_orders',status=key) }}">{{ label }}</a>{% endfor %}</div>
 <div class="orders-table">
 {% for p in pedidos %}
-<a class="order-row" href="{{ url_for('admin_order_detail',order_id=p.id) }}">
+<a class="order-row {% if p.status == 'nuevo' %}order-new{% endif %}"
+   href="{{ url_for('admin_order_detail',order_id=p.id) }}"
+   {% if p.status == 'nuevo' %}
+   style="border-left:5px solid #22a06b;background:#f3fff8;box-shadow:0 2px 10px rgba(34,160,107,.14);"
+   {% endif %}>
 <div class="order-number">#{{ p.id }}</div><div><b>{{ p.customer_name }}</b><small>{{ p.business_name }} · {{ p.customer_phone }}</small><small>🕐 {{ p.created_at }}</small></div>
 <div class="order-address">{{ p.customer_address }}</div><div class="order-total">${{ "%.2f"|format(p.total) }}</div>
-<div class="order-status {{ p.status }}">{{ statuses[p.status] }}</div><div class="order-arrow">›</div>
+<div class="order-status {{ p.status }}">
+    {% if p.status == 'nuevo' %}
+        🆕 NUEVO
+    {% else %}
+        {{ statuses[p.status] }}
+    {% endif %}
+</div><div class="order-arrow">›</div>
 </a>
 {% else %}<div class="empty-box">No hay pedidos en este filtro.</div>{% endfor %}
 </div>
