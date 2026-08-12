@@ -115,10 +115,7 @@ def payu_signature(value):
 
 def payu_webcheckout_signature(reference, amount):
     amount_str=f"{float(amount):.2f}"
-    payment_methods="VISA,MASTERCARD,AMEX"
-    # PayU exige incluir paymentMethods, iin y pseBanks en la firma
-    # cuando esos parámetros se envían en el formulario.
-    raw=f"{PAYU_API_KEY}~{PAYU_MERCHANT_ID}~{reference}~{amount_str}~{PAYU_CURRENCY}~{payment_methods}~~"
+    raw=f"{PAYU_API_KEY}~{PAYU_MERCHANT_ID}~{reference}~{amount_str}~{PAYU_CURRENCY}"
     return payu_signature(raw)
 
 def payu_response_value(value):
@@ -578,7 +575,7 @@ def payu_checkout(order_id):
     if order["payment_method"] != "Tarjeta (PayU)":
         return redirect(url_for("confirmado", order_id=order_id))
 
-    reference=f"PEDIDO-{order_id}"
+    reference=f"PEDIDO{order_id}"
     amount=f"{float(order['total']):.2f}"
     signature=payu_webcheckout_signature(reference, amount)
 
@@ -612,8 +609,6 @@ def payu_checkout(order_id):
         "shippingAddress":order["customer_address"],
         "responseUrl":url_for("payu_response",_external=True),
         "confirmationUrl":url_for("payu_confirmation",_external=True),
-        "paymentMethods":"VISA,MASTERCARD,AMEX",
-        "selectedPaymentMethod":"VISA"
     }
 
     return render_template(
@@ -648,9 +643,9 @@ def payu_response():
     if not received or not hmac.compare_digest(received.lower(), expected.lower()):
         return "Firma de PayU inválida.",403
 
-    if reference.startswith("PEDIDO-"):
+    if reference.startswith("PEDIDO"):
         try:
-            order_id=int(reference.split("-",1)[1])
+            order_id=int(reference[len("PEDIDO"):])
             return redirect(url_for("confirmado",order_id=order_id,payu_state=state))
         except (TypeError,ValueError):
             pass
@@ -684,11 +679,11 @@ def payu_confirmation():
         app.logger.warning("PayU confirmation con firma inválida para %s", reference)
         return "Invalid signature",403
 
-    if not reference.startswith("PEDIDO-"):
+    if not reference.startswith("PEDIDO"):
         return "OK",200
 
     try:
-        order_id=int(reference.split("-",1)[1])
+        order_id=int(reference[len("PEDIDO"):])
     except (TypeError,ValueError):
         return "OK",200
 
