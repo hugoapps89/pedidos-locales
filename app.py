@@ -1,4 +1,4 @@
-import os, sqlite3, uuid
+import os, sqlite3, uuid, time
 from functools import wraps
 from pathlib import Path
 from flask import Flask, render_template, request, redirect, url_for, session, flash, abort, jsonify
@@ -34,6 +34,70 @@ ALLOWED={"png","jpg","jpeg","webp","gif"}
 ADMIN_USER=os.environ["ADMIN_USER"]
 ADMIN_PASSWORD=os.environ["ADMIN_PASSWORD"]
 IS_PRODUCTION=os.environ.get("FLASK_ENV","").lower()=="production"
+# Protección básica contra intentos repetidos de inicio de sesión
+LOGIN_MAX_ATTEMPTS = 5
+LOGIN_BLOCK_SECONDS = 300
+login_attempts = {}
+
+def login_blocked(ip, scope):
+    now = time.time()
+    key = (scope, ip)
+    data = login_attempts.get(key)
+
+    if not data:
+        return False
+
+    if data["blocked_until"] > 0 and now >= data["blocked_until"]:
+        login_attempts.pop(key, None)
+        return False
+
+    return data["failed"] >= LOGIN_MAX_ATTEMPTS
+    now = time.time()
+    data = login_attempts.get(ip)
+
+    if not data:
+        return False
+
+    # Solo eliminar el registro cuando realmente hubo un bloqueo
+    # y el tiempo de bloqueo ya terminó.
+    if data["blocked_until"] > 0 and now >= data["blocked_until"]:
+        login_attempts.pop(ip, None)
+        return False
+
+    return data["failed"] >= LOGIN_MAX_ATTEMPTS
+
+def register_login_failure(ip, scope):
+    now = time.time()
+    key = (scope, ip)
+    data = login_attempts.get(key)
+
+    if not data:
+        data = {"failed": 0, "blocked_until": 0}
+
+    elif data["blocked_until"] > 0 and now >= data["blocked_until"]:
+        data = {"failed": 0, "blocked_until": 0}
+
+    data["failed"] += 1
+
+    if data["failed"] >= LOGIN_MAX_ATTEMPTS:
+        data["blocked_until"] = now + LOGIN_BLOCK_SECONDS
+
+    login_attempts[key] = data
+
+def clear_login_failures(ip, scope):
+    login_attempts.pop((scope, ip), None)
+# Seguridad de cookies de sesión
+app.config["SESSION_COOKIE_HTTPONLY"] = True
+app.config["SESSION_COOKIE_SAMESITE"] = "Lax"
+app.config["SESSION_COOKIE_SECURE"] = IS_PRODUCTION
+# Encabezados de seguridad HTTP
+@app.after_request
+def security_headers(response):
+    response.headers["X-Content-Type-Options"] = "nosniff"
+    response.headers["X-Frame-Options"] = "SAMEORIGIN"
+    response.headers["Referrer-Policy"] = "strict-origin-when-cross-origin"
+    response.headers["Permissions-Policy"] = "geolocation=(), microphone=(), camera=()"
+    return response
 STATUSES={"nuevo":"🆕 Nuevo","preparando":"👨‍🍳 Preparando","camino":"🛵 En camino","entregado":"✅ Entregado","cancelado":"❌ Cancelado"}
 DEFAULT_DELIVERY_FEE=35.00
 DEFAULT_COMMISSION_RATE=15.00
@@ -460,13 +524,31 @@ def confirmado(order_id):
     items=c.execute("SELECT * FROM order_items WHERE order_id=?",(order_id,)).fetchall();c.close()
     return render_template("pedido_confirmado.html",pedido=o,items=items)
 
-@app.route("/admin/login",methods=["GET","POST"])
+@app.route("/admin/login", methods=["GET","POST"])
 def admin_login():
-    if session.get("admin_logged"):return redirect(url_for("admin_dashboard"))
-    if request.method=="POST":
-        if request.form.get("username")==ADMIN_USER and request.form.get("password")==ADMIN_PASSWORD:
-            session["admin_logged"]=True;return redirect(request.args.get("next") or url_for("admin_dashboard"))
-        flash("Usuario o contraseña incorrectos.","error")
+    if session.get("admin_logged"):
+        return redirect(url_for("admin_dashboard"))
+
+    ip = request.remote_addr or "unknown"
+
+    if login_blocked(ip, "admin"):
+        flash("Demasiados intentos fallidos. Inténtalo nuevamente en unos minutos.", "error")
+        return render_template("admin_login.html"), 429
+
+    if request.method == "POST":
+        username = request.form.get("username", "")
+        password = request.form.get("password", "")
+
+        if username == ADMIN_USER and password == ADMIN_PASSWORD:
+            clear_login_failures(ip, "admin")
+            session["admin_logged"] = True
+            return redirect(
+                request.args.get("next") or url_for("admin_dashboard")
+            )
+
+        register_login_failure(ip, "admin")
+        flash("Usuario o contraseña incorrectos.", "error")
+
     return render_template("admin_login.html")
 
 @app.route("/admin/logout")
@@ -611,19 +693,42 @@ def courier_auth(f):
 def courier_login():
     if session.get("courier_logged"):
         return redirect(url_for("courier_dashboard"))
-    if request.method=="POST":
-        username=request.form.get("username","").strip().lower()
-        password=request.form.get("password","").strip()
-        c=db()
-        courier=c.execute("SELECT * FROM couriers WHERE username=? AND active=1",(username,)).fetchone()
-        valid=courier is not None and check_password_hash(courier["password"],password)
+
+    ip = request.remote_addr or "unknown"
+
+    if login_blocked(ip, "courier"):
+        flash("Demasiados intentos fallidos. Inténtalo nuevamente en unos minutos.", "error")
+        return render_template("courier_login.html"), 429
+
+    if request.method == "POST":
+        username = request.form.get("username", "").strip().lower()
+        password = request.form.get("password", "").strip()
+
+        c = db()
+        courier = c.execute(
+            "SELECT * FROM couriers WHERE username=? AND active=1",
+            (username,)
+        ).fetchone()
+
+        valid = courier is not None and check_password_hash(
+            courier["password"],
+            password
+        )
+
         c.close()
+
         if valid:
-            session["courier_logged"]=True
-            session["courier_id"]=courier["id"]
-            session["courier_name"]=courier["name"]
-            return redirect(request.args.get("next") or url_for("courier_dashboard"))
-        flash("Usuario o contraseña incorrectos.","error")
+            clear_login_failures(ip, "courier")
+            session["courier_logged"] = True
+            session["courier_id"] = courier["id"]
+            session["courier_name"] = courier["name"]
+            return redirect(
+                request.args.get("next") or url_for("courier_dashboard")
+            )
+
+        register_login_failure(ip, "courier")
+        flash("Usuario o contraseña incorrectos.", "error")
+
     return render_template("courier_login.html")
 
 @app.route("/repartidor/logout")
