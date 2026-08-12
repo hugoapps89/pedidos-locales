@@ -108,7 +108,7 @@ document.addEventListener("DOMContentLoaded", () => {
       const fd=new FormData(form);
       const payload={
         business_id:window.NEGOCIO.id,
-        customer:{name:fd.get("name"),phone:fd.get("phone"),address:fd.get("address"),payment_method:fd.get("payment_method"),notes:fd.get("notes")},
+        customer:{name:fd.get("name"),phone:fd.get("phone"),email:fd.get("email"),address:fd.get("address"),payment_method:fd.get("payment_method"),notes:fd.get("notes")},
         items:cart.map(x=>({id:x.id,qty:x.qty}))
       };
       try{
@@ -116,7 +116,11 @@ document.addEventListener("DOMContentLoaded", () => {
         const r=await fetch("/pedido/crear",{method:"POST",headers:{"Content-Type":"application/json","X-CSRFToken":csrfToken||""},body:JSON.stringify(payload)});
         const data=await r.json();
         if(!data.ok){err.textContent=data.error||"No se pudo registrar el pedido.";return;}
-        window.location.href="/pedido/"+data.order_id+"/confirmado";
+        if(fd.get("payment_method")==="Tarjeta (PayU)"){
+          window.location.href="/pago/payu/"+data.order_id;
+        }else{
+          window.location.href="/pedido/"+data.order_id+"/confirmado";
+        }
       }catch(ex){err.textContent="No se pudo conectar con el servidor.";}
     });
   }

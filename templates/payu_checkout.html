@@ -1,0 +1,32 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>Pago seguro · Pedidos Locales</title>
+  <style>
+    body{font-family:Arial,sans-serif;background:#f5f7f6;margin:0;display:grid;place-items:center;min-height:100vh;color:#173b2b}
+    .card{background:#fff;width:min(92%,460px);padding:32px;border-radius:20px;box-shadow:0 12px 40px rgba(0,0,0,.10);text-align:center}
+    .icon{font-size:48px}.btn{border:0;border-radius:12px;padding:14px 20px;background:#16834b;color:#fff;font-weight:700;cursor:pointer}
+    .muted{color:#66756e;font-size:14px;line-height:1.5}
+  </style>
+</head>
+<body>
+  <main class="card">
+    <div class="icon">💳</div>
+    <h1>Pago seguro</h1>
+    <p>Estamos enviándote a PayU para completar el pago de tu pedido <b>#{{ order_id }}</b>.</p>
+    <p class="muted">Total: <b>${{ amount }} MXN</b></p>
+    <form id="payuForm" method="post" action="{{ action }}">
+      {% for name, value in fields.items() %}
+        <input type="hidden" name="{{ name }}" value="{{ value }}">
+      {% endfor %}
+      <button class="btn" type="submit">Continuar a PayU</button>
+    </form>
+    <p class="muted">No almacenamos los datos de tu tarjeta en Pedidos Locales.</p>
+  </main>
+  <script>
+    setTimeout(function(){ document.getElementById("payuForm").submit(); }, 700);
+  </script>
+</body>
+</html>

@@ -41,8 +41,16 @@
 <form id="checkoutForm">
 <label>Nombre<input name="name" required placeholder="Tu nombre"></label>
 <label>Teléfono / WhatsApp<input name="phone" required placeholder="9991234567" inputmode="tel"></label>
+<label>Correo electrónico <span class="optional">(necesario para pagar con tarjeta)</span><input name="email" type="email" placeholder="tucorreo@ejemplo.com"></label>
 <label>Dirección de entrega<textarea name="address" required rows="2" placeholder="Calle, número, fraccionamiento..."></textarea></label>
-<label>Forma de pago<select name="payment_method"><option>Efectivo</option><option>Transferencia</option><option>Tarjeta al entregar</option></select></label>
+<label>Forma de pago
+<select name="payment_method">
+<option>Efectivo</option>
+<option>Transferencia</option>
+<option>Tarjeta (PayU)</option>
+<option>Tarjeta al entregar</option>
+</select>
+</label>
 <label>Notas <span class="optional">(opcional)</span><textarea name="notes" rows="2" placeholder="Referencias, indicaciones..."></textarea></label>
 <div class="checkout-breakdown"><div><span>Productos</span><b id="checkoutSubtotal">$0.00</b></div>
 {% if negocio.delivery_enabled %}<div><span>Entrega</span><b id="checkoutDeliveryFee">${{ "%.2f"|format(negocio.delivery_fee or 0) }}</b></div>{% endif %}

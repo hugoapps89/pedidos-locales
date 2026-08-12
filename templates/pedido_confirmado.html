@@ -28,6 +28,16 @@
 <div><span>Total</span><b>${{ "%.2f"|format(pedido.total) }}</b></div>
 <div><span>Cliente</span><b>{{ pedido.customer_name }}</b></div>
 <div><span>Forma de pago</span><b>{{ pedido.payment_method }}</b></div>
+{% if pedido.payment_method == "Tarjeta (PayU)" %}
+<div><span>Estado del pago</span>
+<b>
+{% if pedido.payment_status == "paid" %}✅ Pagado
+{% elif pedido.payment_status == "rejected" %}❌ Rechazado
+{% elif pedido.payment_status == "expired" %}⌛ Expirado
+{% else %}⏳ Pendiente de confirmación
+{% endif %}
+</b></div>
+{% endif %}
 </div>
 
 <div class="confirm-items"><h3>Resumen del pedido</h3>

@@ -1,4 +1,5 @@
-import os, sqlite3, uuid, time
+import os, sqlite3, uuid, time, hashlib, hmac
+from decimal import Decimal, ROUND_HALF_EVEN
 from functools import wraps
 from pathlib import Path
 from flask import Flask, render_template, request, redirect, url_for, session, flash, abort, jsonify
@@ -96,6 +97,47 @@ STATUSES={"nuevo":"🆕 Nuevo","preparando":"👨‍🍳 Preparando","camino":"�
 DEFAULT_DELIVERY_FEE=35.00
 DEFAULT_COMMISSION_RATE=15.00
 LOCAL_TZ=ZoneInfo("America/Merida")
+
+# PayU WebCheckout
+PAYU_MERCHANT_ID=os.environ.get("PAYU_MERCHANT_ID","").strip()
+PAYU_ACCOUNT_ID=os.environ.get("PAYU_ACCOUNT_ID","").strip()
+PAYU_API_KEY=os.environ.get("PAYU_API_KEY","").strip()
+PAYU_TEST=os.environ.get("PAYU_TEST","1").strip() == "1"
+PAYU_CURRENCY="MXN"
+PAYU_CHECKOUT_URL=(
+    "https://sandbox.checkout.payulatam.com/ppp-web-gateway-payu/"
+    if PAYU_TEST else
+    "https://checkout.payulatam.com/ppp-web-gateway-payu/"
+)
+
+def payu_signature(value):
+    return hashlib.md5(value.encode("utf-8")).hexdigest()
+
+def payu_webcheckout_signature(reference, amount):
+    amount_str=f"{float(amount):.2f}"
+    payment_methods="VISA,MASTERCARD,AMEX"
+    # PayU exige incluir paymentMethods, iin y pseBanks en la firma
+    # cuando esos parámetros se envían en el formulario.
+    raw=f"{PAYU_API_KEY}~{PAYU_MERCHANT_ID}~{reference}~{amount_str}~{PAYU_CURRENCY}~{payment_methods}~~"
+    return payu_signature(raw)
+
+def payu_response_value(value):
+    d=Decimal(str(value))
+    return format(d.quantize(Decimal("0.1"), rounding=ROUND_HALF_EVEN), "f")
+
+def payu_confirmation_value(value):
+    s=str(value or "")
+    if "." not in s:
+        return s + ".0"
+    whole, decimals=s.split(".", 1)
+    if not decimals:
+        return whole + ".0"
+    if len(decimals) == 1:
+        return whole + "." + decimals
+    if decimals[1] == "0":
+        return whole + "." + decimals[0]
+    return whole + "." + decimals[:2]
+
 
 @app.errorhandler(CSRFError)
 def handle_csrf_error(e):
@@ -207,6 +249,12 @@ def init_db():
             ("delivery_fee","DOUBLE PRECISION NOT NULL DEFAULT 0"),
             ("commission_rate","DOUBLE PRECISION NOT NULL DEFAULT 15"),
             ("commission_amount","DOUBLE PRECISION NOT NULL DEFAULT 0"),
+            ("customer_email","TEXT DEFAULT ''"),
+            ("payment_status","TEXT NOT NULL DEFAULT 'not_required'"),
+            ("payu_reference","TEXT DEFAULT ''"),
+            ("payu_transaction_id","TEXT DEFAULT ''"),
+            ("payu_state","TEXT DEFAULT ''"),
+            ("payu_response_code","TEXT DEFAULT ''"),
         ]:
             c.execute(f"ALTER TABLE orders ADD COLUMN IF NOT EXISTS {col} {typ}")
         for col, typ in [
@@ -230,7 +278,18 @@ def init_db():
         business_columns={row["name"] for row in c.execute("PRAGMA table_info(businesses)").fetchall()}
         if "delivery_enabled" not in business_columns: c.execute("ALTER TABLE businesses ADD COLUMN delivery_enabled INTEGER DEFAULT 1")
         if "delivery_fee" not in business_columns: c.execute("ALTER TABLE businesses ADD COLUMN delivery_fee REAL DEFAULT 35")
-        for col, typ in [("subtotal","REAL NOT NULL DEFAULT 0"),("delivery_fee","REAL NOT NULL DEFAULT 0"),("commission_rate","REAL NOT NULL DEFAULT 15"),("commission_amount","REAL NOT NULL DEFAULT 0")]:
+        for col, typ in [
+            ("subtotal","REAL NOT NULL DEFAULT 0"),
+            ("delivery_fee","REAL NOT NULL DEFAULT 0"),
+            ("commission_rate","REAL NOT NULL DEFAULT 15"),
+            ("commission_amount","REAL NOT NULL DEFAULT 0"),
+            ("customer_email","TEXT DEFAULT ''"),
+            ("payment_status","TEXT NOT NULL DEFAULT 'not_required'"),
+            ("payu_reference","TEXT DEFAULT ''"),
+            ("payu_transaction_id","TEXT DEFAULT ''"),
+            ("payu_state","TEXT DEFAULT ''"),
+            ("payu_response_code","TEXT DEFAULT ''")
+        ]:
             if col not in order_columns: c.execute(f"ALTER TABLE orders ADD COLUMN {col} {typ}")
 
     if c.postgres:
@@ -454,8 +513,18 @@ def crear_pedido():
     data=request.get_json(silent=True) or {}; customer=data.get("customer") or {}; items=data.get("items") or []
     try: bid=int(data.get("business_id"))
     except: return jsonify(ok=False,error="Negocio inválido."),400
-    name=str(customer.get("name","")).strip(); phone=str(customer.get("phone","")).strip(); address=str(customer.get("address","")).strip(); notes=str(customer.get("notes","")).strip(); payment=str(customer.get("payment_method","Efectivo")).strip()
-    if not name or not phone or not address or not items:return jsonify(ok=False,error="Completa tus datos y agrega al menos un producto."),400
+    name=str(customer.get("name","")).strip()
+    phone=str(customer.get("phone","")).strip()
+    address=str(customer.get("address","")).strip()
+    email=str(customer.get("email","")).strip().lower()
+    notes=str(customer.get("notes","")).strip()
+    payment=str(customer.get("payment_method","Efectivo")).strip()
+    if payment in ("Tarjeta","Tarjeta con PayU","Tarjeta (PayU)"):
+        payment="Tarjeta (PayU)"
+    if not name or not phone or not address or not items:
+        return jsonify(ok=False,error="Completa tus datos y agrega al menos un producto."),400
+    if payment == "Tarjeta (PayU)" and ("@" not in email or "." not in email.split("@")[-1]):
+        return jsonify(ok=False,error="Para pagar con tarjeta necesitamos un correo electrónico válido."),400
     c=db(); business=c.execute("SELECT * FROM businesses WHERE id=?",(bid,)).fetchone()
     if not business:c.close();return jsonify(ok=False,error="Negocio no encontrado."),404
     clean=[]; total=0
@@ -477,14 +546,14 @@ def crear_pedido():
     now=datetime.now(LOCAL_TZ).replace(tzinfo=None).isoformat(timespec="seconds")
     if c.postgres:
         cur=c.execute(
-            "INSERT INTO orders(business_id,customer_name,customer_phone,customer_address,notes,payment_method,total,subtotal,delivery_fee,commission_rate,commission_amount,status,created_at) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?) RETURNING id",
-            (bid,name,phone,address,notes,payment,grand_total,total,delivery_fee,commission_rate,commission_amount,"nuevo",now)
+            "INSERT INTO orders(business_id,customer_name,customer_phone,customer_address,customer_email,notes,payment_method,payment_status,total,subtotal,delivery_fee,commission_rate,commission_amount,status,created_at) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?) RETURNING id",
+            (bid,name,phone,address,email,notes,payment,"pending" if payment=="Tarjeta (PayU)" else "not_required",grand_total,total,delivery_fee,commission_rate,commission_amount,"nuevo",now)
         )
         oid=cur.fetchone()["id"]
     else:
         cur=c.execute(
-            "INSERT INTO orders(business_id,customer_name,customer_phone,customer_address,notes,payment_method,total,subtotal,delivery_fee,commission_rate,commission_amount,status,created_at) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?)",
-            (bid,name,phone,address,notes,payment,grand_total,total,delivery_fee,commission_rate,commission_amount,"nuevo",now)
+            "INSERT INTO orders(business_id,customer_name,customer_phone,customer_address,customer_email,notes,payment_method,payment_status,total,subtotal,delivery_fee,commission_rate,commission_amount,status,created_at) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)",
+            (bid,name,phone,address,email,notes,payment,"pending" if payment=="Tarjeta (PayU)" else "not_required",grand_total,total,delivery_fee,commission_rate,commission_amount,"nuevo",now)
         )
         oid=cur.lastrowid
 
@@ -493,6 +562,182 @@ def crear_pedido():
         [(oid,*x) for x in clean]
     )
     c.commit();c.close();return jsonify(ok=True,order_id=oid,subtotal=total,delivery_fee=delivery_fee,commission_rate=commission_rate,commission_amount=commission_amount,total=grand_total)
+
+@app.get("/pago/payu/<int:order_id>")
+def payu_checkout(order_id):
+    if not PAYU_MERCHANT_ID or not PAYU_ACCOUNT_ID or not PAYU_API_KEY:
+        return "PayU no está configurado en el servidor.", 500
+
+    c=db()
+    order=c.execute("SELECT * FROM orders WHERE id=?",(order_id,)).fetchone()
+    c.close()
+
+    if not order:
+        abort(404)
+
+    if order["payment_method"] != "Tarjeta (PayU)":
+        return redirect(url_for("confirmado", order_id=order_id))
+
+    reference=f"PEDIDO-{order_id}"
+    amount=f"{float(order['total']):.2f}"
+    signature=payu_webcheckout_signature(reference, amount)
+
+    c=db()
+    c.execute(
+        "UPDATE orders SET payu_reference=?, payment_status='pending' WHERE id=?",
+        (reference,order_id)
+    )
+    c.commit()
+    c.close()
+
+    fields={
+        "lng":"es",
+        "merchantId":PAYU_MERCHANT_ID,
+        "accountId":PAYU_ACCOUNT_ID,
+        "algorithmSignature":"MD5",
+        "description":f"Pedido Locales #{order_id}",
+        "referenceCode":reference,
+        "amount":amount,
+        "tax":"0",
+        "taxReturnBase":"0",
+        "currency":PAYU_CURRENCY,
+        "signature":signature,
+        "test":"1" if PAYU_TEST else "0",
+        "buyerFullName":order["customer_name"],
+        "buyerEmail":order["customer_email"],
+        "telephone":order["customer_phone"],
+        "mobilePhone":order["customer_phone"],
+        "shippingCountry":"MX",
+        "shippingCity":"Merida",
+        "shippingAddress":order["customer_address"],
+        "responseUrl":url_for("payu_response",_external=True),
+        "confirmationUrl":url_for("payu_confirmation",_external=True),
+        "paymentMethods":"VISA,MASTERCARD,AMEX",
+        "selectedPaymentMethod":"VISA"
+    }
+
+    return render_template(
+        "payu_checkout.html",
+        action=PAYU_CHECKOUT_URL,
+        fields=fields,
+        order_id=order_id,
+        amount=amount
+    )
+
+@app.get("/pago/respuesta")
+def payu_response():
+    q=request.args
+    merchant=q.get("merchantId","")
+    reference=q.get("referenceCode","")
+    value=q.get("TX_VALUE","")
+    currency=q.get("currency","")
+    state=q.get("transactionState","")
+    received=q.get("signature","")
+
+    if not PAYU_API_KEY or merchant != PAYU_MERCHANT_ID or not reference:
+        return "Respuesta de PayU inválida.",400
+
+    try:
+        formatted=payu_response_value(value)
+    except Exception:
+        return "Monto de PayU inválido.",400
+
+    raw=f"{PAYU_API_KEY}~{merchant}~{reference}~{formatted}~{currency}~{state}"
+    expected=payu_signature(raw)
+
+    if not received or not hmac.compare_digest(received.lower(), expected.lower()):
+        return "Firma de PayU inválida.",403
+
+    if reference.startswith("PEDIDO-"):
+        try:
+            order_id=int(reference.split("-",1)[1])
+            return redirect(url_for("confirmado",order_id=order_id,payu_state=state))
+        except (TypeError,ValueError):
+            pass
+
+    return "Pago procesado por PayU.",200
+
+@csrf.exempt
+@app.post("/pago/confirmacion")
+def payu_confirmation():
+    data=request.form
+
+    merchant=data.get("merchant_id","")
+    reference=data.get("reference_sale","")
+    value=data.get("value","")
+    currency=data.get("currency","")
+    state=data.get("state_pol","")
+    received=data.get("sign","")
+
+    if not PAYU_API_KEY or merchant != PAYU_MERCHANT_ID:
+        return "OK",200
+
+    try:
+        formatted=payu_confirmation_value(value)
+    except Exception:
+        return "OK",200
+
+    raw=f"{PAYU_API_KEY}~{merchant}~{reference}~{formatted}~{currency}~{state}"
+    expected=payu_signature(raw)
+
+    if not received or not hmac.compare_digest(received.lower(), expected.lower()):
+        app.logger.warning("PayU confirmation con firma inválida para %s", reference)
+        return "Invalid signature",403
+
+    if not reference.startswith("PEDIDO-"):
+        return "OK",200
+
+    try:
+        order_id=int(reference.split("-",1)[1])
+    except (TypeError,ValueError):
+        return "OK",200
+
+    c=db()
+    order=c.execute("SELECT id,total,payment_status FROM orders WHERE id=?",(order_id,)).fetchone()
+
+    if order:
+        # Una vez aprobado, no permitimos que otra notificación posterior
+        # cambie el pedido a rechazado/expirado.
+        if order["payment_status"] == "paid":
+            c.close()
+            return "OK",200
+
+        try:
+            payu_value=float(value)
+        except (TypeError,ValueError):
+            payu_value=-1
+
+        expected_total=round(float(order["total"]),2)
+
+        if abs(payu_value-expected_total) > 0.01 or currency != PAYU_CURRENCY:
+            c.close()
+            app.logger.warning("PayU monto/moneda no coincide para pedido %s", order_id)
+            return "Invalid amount",400
+
+        if state=="4":
+            payment_status="paid"
+        elif state=="6":
+            payment_status="rejected"
+        elif state=="5":
+            payment_status="expired"
+        else:
+            payment_status=f"state_{state or 'unknown'}"
+
+        c.execute(
+            "UPDATE orders SET payment_status=?, payu_reference=?, payu_transaction_id=?, payu_state=?, payu_response_code=? WHERE id=?",
+            (
+                payment_status,
+                reference,
+                data.get("transaction_id",""),
+                state,
+                data.get("response_code_pol",""),
+                order_id
+            )
+        )
+        c.commit()
+
+    c.close()
+    return "OK",200
 
 @app.route("/pedido/<int:order_id>/estado")
 def pedido_estado(order_id):
