@@ -9,7 +9,32 @@
 <div class="detail-total"><span>Entrega</span><strong>${{ "%.2f"|format(pedido.delivery_fee if pedido.delivery_fee is not none else 0) }}</strong></div>
 <div class="detail-total"><span>Comisión ({{ "%.2f"|format(pedido.commission_rate if pedido.commission_rate is not none else 0) }}%)</span><strong>${{ "%.2f"|format(pedido.commission_amount if pedido.commission_amount is not none else 0) }}</strong></div>
 <div class="detail-total grand"><span>Total</span><strong>${{ "%.2f"|format(pedido.total) }}</strong></div></section>
-<section class="detail-card"><h2>Cliente y entrega</h2><div class="customer-data"><span>Cliente</span><b>{{ pedido.customer_name }}</b><span>Teléfono</span><b>{{ pedido.customer_phone }}</b><span>Dirección</span><b>{{ pedido.customer_address }}</b><span>Pago</span><b>{{ pedido.payment_method }}</b>{% if pedido.notes %}<span>Notas</span><b>{{ pedido.notes }}</b>{% endif %}</div></section>
+<section class="detail-card"><h2>Cliente y entrega</h2><div class="customer-data"><span>Cliente</span><b>{{ pedido.customer_name }}</b><span>Teléfono</span><b>{{ pedido.customer_phone }}</b><span>Dirección</span><b>{{ pedido.customer_address }}</b><span>Pago</span>
+<b>{{ pedido.payment_method }}</b>
+
+<span>Estado del pago</span>
+
+{% if pedido.payment_status == 'paid' %}
+    <b style="color:#16803c;">🟢 PAGADO</b>
+{% elif pedido.payment_status == 'pending' %}
+    <b style="color:#b7791f;">🟡 PENDIENTE</b>
+{% elif pedido.payment_status == 'rejected' %}
+    <b style="color:#c53030;">🔴 RECHAZADO</b>
+{% elif pedido.payment_status == 'expired' %}
+    <b style="color:#c53030;">🔴 EXPIRADO</b>
+{% else %}
+    <b>{{ pedido.payment_status }}</b>
+{% endif %}
+
+{% if pedido.payu_reference %}
+    <span>Referencia PayU</span>
+    <b>{{ pedido.payu_reference }}</b>
+{% endif %}
+
+{% if pedido.payu_transaction_id %}
+    <span>Transacción PayU</span>
+    <b>{{ pedido.payu_transaction_id }}</b>
+{% endif %}{% if pedido.notes %}<span>Notas</span><b>{{ pedido.notes }}</b>{% endif %}</div></section>
 </div>
 <section class="detail-card"><h2>🛵 Asignar repartidor</h2>
 <form class="assign-form" method="post" action="{{ url_for('admin_assign_courier',order_id=pedido.id) }}">
