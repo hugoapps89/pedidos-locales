@@ -3,3 +3,4 @@ Gunicorn
 psycopg[binary]>=3.2,<4
 tzdata
 Flask-WTF>=1.3,<2
+cryptography>=42,<46

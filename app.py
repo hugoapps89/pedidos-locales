@@ -11,6 +11,8 @@ import json
 from datetime import date, datetime, timedelta
 from zoneinfo import ZoneInfo
 from urllib import request as urllib_request
+from cryptography.hazmat.primitives import hashes, serialization
+from cryptography.hazmat.primitives.asymmetric import padding
 
 try:
     import psycopg
@@ -109,6 +111,27 @@ PAYU_CHECKOUT_URL=(
     if PAYU_TEST else
     "https://checkout.payulatam.com/ppp-web-gateway-payu/"
 )
+# Conekta
+CONEKTA_API_KEY=os.environ.get("CONEKTA_API_KEY","").strip()
+CONEKTA_WEBHOOK_PUBLIC_KEY=os.environ.get("CONEKTA_WEBHOOK_PUBLIC_KEY","").strip()
+CONEKTA_API_URL="https://api.conekta.io/orders"
+CONEKTA_API_VERSION="application/vnd.conekta-v2.2.0+json"
+
+def conekta_verify_webhook(raw_body,digest):
+    if not CONEKTA_WEBHOOK_PUBLIC_KEY or not digest: return False
+    try:
+        import base64
+        key=serialization.load_pem_public_key(CONEKTA_WEBHOOK_PUBLIC_KEY.encode("utf-8"))
+        key.verify(base64.b64decode(digest),raw_body,padding.PKCS1v15(),hashes.SHA256())
+        return True
+    except Exception: return False
+
+def conekta_create_order(order,items):
+    if not CONEKTA_API_KEY: raise RuntimeError("Conekta no está configurado en el servidor.")
+    line_items=[{"name":str(x["product_name"]),"quantity":int(x["quantity"]),"unit_price":int(round(float(x["price"])*100))} for x in items]
+    payload={"currency":"MXN","customer_info":{"name":order["customer_name"],"email":order["customer_email"],"phone":order["customer_phone"]},"metadata":{"pedido_locales_id":str(order["id"])},"line_items":line_items,"checkout":{"type":"HostedPayment","allowed_payment_methods":["card"],"success_url":url_for("conekta_success",order_id=order["id"],_external=True),"failure_url":url_for("conekta_failure",order_id=order["id"],_external=True),"redirection_time":4}}
+    req=urllib_request.Request(CONEKTA_API_URL,data=json.dumps(payload).encode("utf-8"),headers={"Authorization":f"Bearer {CONEKTA_API_KEY}","Accept":CONEKTA_API_VERSION,"Content-Type":"application/json","Accept-Language":"es"},method="POST")
+    with urllib_request.urlopen(req,timeout=20) as r: return json.loads(r.read().decode("utf-8"))
 
 def payu_signature(value):
     return hashlib.md5(value.encode("utf-8")).hexdigest()
@@ -252,6 +275,10 @@ def init_db():
             ("payu_transaction_id","TEXT DEFAULT ''"),
             ("payu_state","TEXT DEFAULT ''"),
             ("payu_response_code","TEXT DEFAULT ''"),
+            ("conekta_order_id","TEXT DEFAULT ''"),
+            ("conekta_checkout_id","TEXT DEFAULT ''"),
+            ("conekta_charge_id","TEXT DEFAULT ''"),
+            ("conekta_event_id","TEXT DEFAULT ''"),
         ]:
             c.execute(f"ALTER TABLE orders ADD COLUMN IF NOT EXISTS {col} {typ}")
         for col, typ in [
@@ -285,7 +312,11 @@ def init_db():
             ("payu_reference","TEXT DEFAULT ''"),
             ("payu_transaction_id","TEXT DEFAULT ''"),
             ("payu_state","TEXT DEFAULT ''"),
-            ("payu_response_code","TEXT DEFAULT ''")
+            ("payu_response_code","TEXT DEFAULT ''"),
+            ("conekta_order_id","TEXT DEFAULT ''"),
+            ("conekta_checkout_id","TEXT DEFAULT ''"),
+            ("conekta_charge_id","TEXT DEFAULT ''"),
+            ("conekta_event_id","TEXT DEFAULT ''")
         ]:
             if col not in order_columns: c.execute(f"ALTER TABLE orders ADD COLUMN {col} {typ}")
 
@@ -518,9 +549,11 @@ def crear_pedido():
     payment=str(customer.get("payment_method","Efectivo")).strip()
     if payment in ("Tarjeta","Tarjeta con PayU","Tarjeta (PayU)"):
         payment="Tarjeta (PayU)"
+    if payment in ("Tarjeta con Conekta","Tarjeta (Conekta)","Conekta"):
+        payment="Tarjeta (Conekta)"
     if not name or not phone or not address or not items:
         return jsonify(ok=False,error="Completa tus datos y agrega al menos un producto."),400
-    if payment == "Tarjeta (PayU)" and ("@" not in email or "." not in email.split("@")[-1]):
+    if payment in ("Tarjeta (PayU)","Tarjeta (Conekta)") and ("@" not in email or "." not in email.split("@")[-1]):
         return jsonify(ok=False,error="Para pagar con tarjeta necesitamos un correo electrónico válido."),400
     c=db(); business=c.execute("SELECT * FROM businesses WHERE id=?",(bid,)).fetchone()
     if not business:c.close();return jsonify(ok=False,error="Negocio no encontrado."),404
@@ -544,13 +577,13 @@ def crear_pedido():
     if c.postgres:
         cur=c.execute(
             "INSERT INTO orders(business_id,customer_name,customer_phone,customer_address,customer_email,notes,payment_method,payment_status,total,subtotal,delivery_fee,commission_rate,commission_amount,status,created_at) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?) RETURNING id",
-            (bid,name,phone,address,email,notes,payment,"pending" if payment=="Tarjeta (PayU)" else "not_required",grand_total,total,delivery_fee,commission_rate,commission_amount,"nuevo",now)
+            (bid,name,phone,address,email,notes,payment,"pending" if payment in ("Tarjeta (PayU)","Tarjeta (Conekta)") else "not_required",grand_total,total,delivery_fee,commission_rate,commission_amount,"nuevo",now)
         )
         oid=cur.fetchone()["id"]
     else:
         cur=c.execute(
             "INSERT INTO orders(business_id,customer_name,customer_phone,customer_address,customer_email,notes,payment_method,payment_status,total,subtotal,delivery_fee,commission_rate,commission_amount,status,created_at) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)",
-            (bid,name,phone,address,email,notes,payment,"pending" if payment=="Tarjeta (PayU)" else "not_required",grand_total,total,delivery_fee,commission_rate,commission_amount,"nuevo",now)
+            (bid,name,phone,address,email,notes,payment,"pending" if payment in ("Tarjeta (PayU)","Tarjeta (Conekta)") else "not_required",grand_total,total,delivery_fee,commission_rate,commission_amount,"nuevo",now)
         )
         oid=cur.lastrowid
 
@@ -559,6 +592,58 @@ def crear_pedido():
         [(oid,*x) for x in clean]
     )
     c.commit();c.close();return jsonify(ok=True,order_id=oid,subtotal=total,delivery_fee=delivery_fee,commission_rate=commission_rate,commission_amount=commission_amount,total=grand_total)
+
+
+@app.get("/pago/conekta/<int:order_id>")
+def conekta_checkout(order_id):
+    if not CONEKTA_API_KEY: return "Conekta no está configurado en el servidor.",500
+    c=db(); order=c.execute("SELECT * FROM orders WHERE id=?",(order_id,)).fetchone(); items=c.execute("SELECT * FROM order_items WHERE order_id=?",(order_id,)).fetchall(); c.close()
+    if not order: abort(404)
+    if order["payment_method"]!="Tarjeta (Conekta)": return redirect(url_for("confirmado",order_id=order_id))
+    try:
+        result=conekta_create_order(order,items); checkout=result.get("checkout") or {}; url_pago=checkout.get("url"); conekta_id=result.get("id",""); checkout_id=checkout.get("id","")
+        if not url_pago or not conekta_id: return "Conekta no devolvió una URL de pago válida.",502
+        c=db(); c.execute("UPDATE orders SET payment_status='pending', conekta_order_id=?, conekta_checkout_id=? WHERE id=?",(conekta_id,checkout_id,order_id)); c.commit(); c.close()
+        return redirect(url_pago)
+    except Exception as e:
+        app.logger.exception("Error creando checkout Conekta para pedido %s",order_id); return f"No se pudo iniciar el pago con Conekta: {e}",502
+
+@app.get("/pago/conekta/exito/<int:order_id>")
+def conekta_success(order_id): return redirect(url_for("confirmado",order_id=order_id))
+
+@app.get("/pago/conekta/fallo/<int:order_id>")
+def conekta_failure(order_id):
+    c=db(); c.execute("UPDATE orders SET payment_status='rejected' WHERE id=? AND payment_status='pending'",(order_id,)); c.commit(); c.close()
+    return redirect(url_for("confirmado",order_id=order_id))
+
+@csrf.exempt
+@app.post("/webhooks/conekta")
+def conekta_webhook():
+    raw=request.get_data(cache=False); digest=request.headers.get("DIGEST","")
+    if not conekta_verify_webhook(raw,digest): return "Firma inválida",401
+    try: event=json.loads(raw.decode("utf-8"))
+    except Exception: return "JSON inválido",400
+    event_id=str(event.get("id","")); event_type=str(event.get("type","")); obj=((event.get("data") or {}).get("object") or {}); conekta_id=str(obj.get("id",""))
+    if not event_id or not conekta_id: return "OK",200
+    c=db(); order=c.execute("SELECT id,total,payment_status,conekta_event_id FROM orders WHERE conekta_order_id=?",(conekta_id,)).fetchone()
+    if not order: c.close(); return "OK",200
+
+    # Idempotencia: Conekta puede reenviar el mismo evento.
+    if order["conekta_event_id"] == event_id:
+        c.close()
+        return "OK",200
+
+    amount=int(obj.get("amount",0) or 0); expected=int(round(float(order["total"])*100)); currency=str(obj.get("currency","")).upper(); status=str(obj.get("status","")).lower()
+    if event_type=="order.paid" and status=="paid" and amount==expected and currency=="MXN":
+        charges=((obj.get("charges") or {}).get("data") or []); charge_id=str(charges[0].get("id","")) if charges else ""
+        c.execute("UPDATE orders SET payment_status='paid', conekta_charge_id=?, conekta_event_id=? WHERE id=?",(charge_id,event_id,order["id"]))
+    elif event_type in ("order.declined","charge.declined"):
+        c.execute("UPDATE orders SET payment_status='rejected', conekta_event_id=? WHERE id=?",(event_id,order["id"]))
+    elif event_type in ("order.expired","charge.expired"):
+        c.execute("UPDATE orders SET payment_status='expired', conekta_event_id=? WHERE id=?",(event_id,order["id"]))
+    else:
+        c.execute("UPDATE orders SET conekta_event_id=? WHERE id=?",(event_id,order["id"]))
+    c.commit(); c.close(); return "OK",200
 
 @app.get("/pago/payu/<int:order_id>")
 def payu_checkout(order_id):

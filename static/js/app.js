@@ -118,6 +118,8 @@ document.addEventListener("DOMContentLoaded", () => {
         if(!data.ok){err.textContent=data.error||"No se pudo registrar el pedido.";return;}
         if(fd.get("payment_method")==="Tarjeta (PayU)"){
           window.location.href="/pago/payu/"+data.order_id;
+        }else if(fd.get("payment_method")==="Tarjeta (Conekta)"){
+          window.location.href="/pago/conekta/"+data.order_id;
         }else{
           window.location.href="/pedido/"+data.order_id+"/confirmado";
         }
