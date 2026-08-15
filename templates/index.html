@@ -1,5 +1,5 @@
 {% extends "base.html" %}
-{% block title %}Pedidos Locales{% endblock %}
+{% block title %}Pedidos Locales | Plataforma de pedidos para negocios locales{% endblock %}
 {% block content %}
 <main>
 <section class="hero"><div class="hero-copy">
@@ -8,15 +8,27 @@
 <div class="app-purpose">
   <strong>Pedidos Locales</strong>
   <b>Plataforma de pedidos para negocios locales</b>
+
   <p>
-    Encuentra negocios de tu comunidad, consulta productos y precios,
-    realiza pedidos y consulta el estado de tus compras.
+    <strong>¿Qué es Pedidos Locales?</strong>
   </p>
+
   <p>
-    Puedes iniciar sesión con Google para administrar tu cuenta y consultar
-    tus pedidos. El inicio de sesión utiliza únicamente información básica
-    necesaria para identificar tu cuenta.
+    Pedidos Locales es una plataforma que permite a los usuarios descubrir
+    negocios locales, consultar sus productos y precios, realizar pedidos
+    y consultar el estado de sus compras.
   </p>
+
+  <p>
+    Los usuarios pueden iniciar sesión con Google para administrar su cuenta
+    y consultar sus pedidos. Pedidos Locales utiliza únicamente información
+    básica de Google necesaria para identificar la cuenta del usuario.
+  </p>
+
+  <div class="app-purpose-links">
+    <a href="{{ url_for('privacidad') }}">Política de Privacidad</a>
+    <a href="{{ url_for('terminos') }}">Condiciones del Servicio</a>
+  </div>
 </div>
 <div class="search"><input id="searchInput" type="search" placeholder="Buscar negocios o productos..."><button type="button">🔎</button></div>
 <div class="benefits"><div><span>🛒</span><b>Fácil y rápido</b><small>Pide en minutos</small></div><div><span>📍</span><b>Apoya lo local</b><small>Fortalece tu comunidad</small></div></div>
@@ -66,4 +78,24 @@
   color:#526158;
   line-height:1.55;
 }
+
+.app-purpose-links{
+  display:flex;
+  flex-wrap:wrap;
+  gap:10px;
+  margin-top:16px;
+  padding-top:14px;
+  border-top:1px solid #dce9df;
+}
+
+.app-purpose-links a{
+  color:#15803d;
+  font-weight:700;
+  text-decoration:underline;
+}
+
+.app-purpose-links a:hover{
+  text-decoration:none;
+}
+
 </style>
