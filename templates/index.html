@@ -2,14 +2,20 @@
 {% block title %}Pedidos Locales{% endblock %}
 {% block content %}
 <main>
-<section class="hero"><div class="hero-copy"><span class="eyebrow">COMPRA LOCAL</span><h1>Pide en tus negocios<br><span>locales favoritos</span></h1><p>Descubre productos, arma tu pedido y contacta al negocio de forma fácil y rápida.</p>
+<section class="hero"><div class="hero-copy">
+<span class="eyebrow">PEDIDOS LOCALES</span>
+<h1>Plataforma de pedidos<br><span>para negocios locales</span></h1><p>Descubre productos, arma tu pedido y contacta al negocio de forma fácil y rápida.</p>
 <div class="app-purpose">
   <strong>Pedidos Locales</strong>
+  <b>Plataforma de pedidos para negocios locales</b>
   <p>
-    Plataforma para descubrir negocios locales, consultar productos y precios,
-    realizar pedidos y dar seguimiento a tus compras.
+    Encuentra negocios de tu comunidad, consulta productos y precios,
+    realiza pedidos y consulta el estado de tus compras.
+  </p>
+  <p>
     Puedes iniciar sesión con Google para administrar tu cuenta y consultar
-    tus pedidos.
+    tus pedidos. El inicio de sesión utiliza únicamente información básica
+    necesaria para identificar tu cuenta.
   </p>
 </div>
 <div class="search"><input id="searchInput" type="search" placeholder="Buscar negocios o productos..."><button type="button">🔎</button></div>
@@ -44,9 +50,15 @@
 
 .app-purpose strong{
   display:block;
-  font-size:1.05rem;
+  font-size:1.15rem;
   color:#14532d;
-  margin-bottom:5px;
+  margin-bottom:4px;
+}
+
+.app-purpose > b{
+  display:block;
+  color:#26352b;
+  margin-bottom:8px;
 }
 
 .app-purpose p{
