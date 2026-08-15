@@ -10,7 +10,7 @@
 </head>
 <body>
 <header class="topbar">
-<a class="brand" href="{{ url_for('inicio') }}"><span class="brand-icon">🛍️</span><span><strong>Pedidos</strong> <b>Locales</b><small>Apoya lo local</small></span></a>
+<a class="brand" href="{{ url_for('inicio') }}"><span class="brand-icon">🛍</span><span><strong>Pedidos Locales</strong><small>Apoya lo local</small></span></a>
 <button class="menu-toggle" id="menuToggle" type="button" aria-label="Abrir menú" aria-controls="mobileMenu" aria-expanded="false">☰</button>
 <nav class="desktop-nav"><a href="{{ url_for('inicio') }}">Inicio</a><a href="{{ url_for('inicio') }}#destacados">⭐ Destacados</a><a href="{{ url_for('inicio') }}#negocios">Todos los negocios</a>{% if admin_logged %}<a href="{{ url_for('admin_orders') }}">Pedidos</a><a href="{{ url_for('admin_couriers') }}">Repartidores</a><a href="{{ url_for('admin_settlements') }}">Liquidaciones</a><a href="{{ url_for('admin_dashboard') }}">Administrador</a><a href="{{ url_for('admin_logout') }}">Salir</a>{% endif %}</nav>
 <div class="cart-mini">🛒 <span id="cartCount">0</span></div>
