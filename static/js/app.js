@@ -51,25 +51,71 @@ document.addEventListener("DOMContentLoaded", () => {
     if(checkoutFeeEl) checkoutFeeEl.textContent = formatDelivery(deliveryFee);
   }
 
-  function requestCustomerLocation() {
+  let customerLocationRequest = null;
+
+  function requestCustomerLocation(forceRefresh=false) {
     return new Promise((resolve, reject) => {
       if(!config.deliveryEnabled) { resolve(null); return; }
-      if(customerLocation) { resolve(customerLocation); return; }
-      if(!navigator.geolocation) { reject(new Error("Tu navegador no permite obtener la ubicación.")); return; }
-      navigator.geolocation.getCurrentPosition(
-        pos => {
-          customerLocation={latitude:pos.coords.latitude,longitude:pos.coords.longitude};
-          const status=document.getElementById("customerLocationStatus");
-          if(status) status.textContent=" ✓ Ubicación obtenida correctamente.";
-          resolve(customerLocation);
-        },
-        err => {
-          const status=document.getElementById("customerLocationStatus");
-          const messages={1:" Permiso de ubicación denegado. Actívalo en el navegador.",2:" No fue posible obtener tu ubicación.",3:" Se agotó el tiempo para obtener tu ubicación."};
-          if(status) status.textContent=messages[err.code]||" No fue posible obtener tu ubicación.";
-          reject(new Error(messages[err.code]?.trim()||"Necesitamos tu ubicación para calcular el costo de envío."));
-        },
-        {enableHighAccuracy:true,timeout:10000,maximumAge:60000}
+
+      if(customerLocation && !forceRefresh) {
+        resolve(customerLocation);
+        return;
+      }
+
+      if(customerLocationRequest) {
+        customerLocationRequest.then(resolve).catch(reject);
+        return;
+      }
+
+      if(!navigator.geolocation) {
+        reject(new Error("Tu navegador no permite obtener la ubicación."));
+        return;
+      }
+
+      const status=document.getElementById("customerLocationStatus");
+      if(status) status.textContent=" Obteniendo ubicación…";
+
+      customerLocationRequest = new Promise((resolveRequest, rejectRequest) => {
+        let finished=false;
+
+        const finish=(callback, value)=>{
+          if(finished) return;
+          finished=true;
+          callback(value);
+        };
+
+        const timeoutId=setTimeout(()=>{
+          finish(rejectRequest, new Error("La ubicación tardó demasiado. Inténtalo nuevamente."));
+        }, 12000);
+
+        navigator.geolocation.getCurrentPosition(
+          pos => {
+            clearTimeout(timeoutId);
+            customerLocation = {
+              latitude: pos.coords.latitude,
+              longitude: pos.coords.longitude
+            };
+            if(status) status.textContent=" ✓ Ubicación obtenida correctamente.";
+            finish(resolveRequest, customerLocation);
+          },
+          err => {
+            clearTimeout(timeoutId);
+            const messages={
+              1:"Permiso de ubicación denegado. Actívalo en el navegador.",
+              2:"No fue posible obtener tu ubicación.",
+              3:"La ubicación tardó demasiado. Inténtalo nuevamente."
+            };
+            const message=messages[err.code] || "No fue posible obtener tu ubicación.";
+            if(status) status.textContent=" "+message;
+            finish(rejectRequest, new Error(message));
+          },
+          {enableHighAccuracy:true, timeout:10000, maximumAge:60000}
+        );
+      });
+
+      customerLocationRequest.then(
+        value => { customerLocationRequest=null; resolve(value); },
+        error => { customerLocationRequest=null; reject(error); }
       );
     });
   }
@@ -147,11 +193,22 @@ document.addEventListener("DOMContentLoaded", () => {
   const customerLocationStatus=document.getElementById("customerLocationStatus");
   if(getCustomerLocationBtn){
     getCustomerLocationBtn.addEventListener("click",async()=>{
+      if(getCustomerLocationBtn.dataset.loading==="1") return;
+
+      getCustomerLocationBtn.dataset.loading="1";
       getCustomerLocationBtn.disabled=true;
       if(customerLocationStatus) customerLocationStatus.textContent=" Obteniendo ubicación…";
-      try{await requestCustomerLocation();}
-      catch(ex){if(customerLocationStatus && !customerLocationStatus.textContent) customerLocationStatus.textContent=" "+(ex.message||"No fue posible obtener tu ubicación.");}
-      finally{getCustomerLocationBtn.disabled=false;}
+
+      try{
+        await requestCustomerLocation();
+      }catch(ex){
+        if(customerLocationStatus) {
+          customerLocationStatus.textContent=" "+(ex.message||"No fue posible obtener tu ubicación.");
+        }
+      }finally{
+        getCustomerLocationBtn.dataset.loading="0";
+        getCustomerLocationBtn.disabled=false;
+      }
     });
   }
 
