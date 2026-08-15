@@ -603,6 +603,11 @@ def user_logout():
     return redirect(url_for("inicio"))
 
 
+
+@app.get("/terminos")
+def terminos():
+    return render_template("terms.html")
+
 @app.get("/privacidad")
 def privacidad():
     return render_template("privacy.html")
