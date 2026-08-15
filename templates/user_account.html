@@ -1,3 +1,62 @@
 {% extends "base.html" %}
 {% block title %}Mi cuenta · Pedidos Locales{% endblock %}
-{% block content %}<main class="section"><div class="section-title"><div><span class="line"></span><h2>👤 Mi cuenta</h2></div></div><div class="business-info" style="max-width:760px;margin-bottom:24px"><div style="display:flex;align-items:center;gap:14px">{% if user_picture %}<img src="{{ user_picture }}" alt="" style="width:52px;height:52px;border-radius:50%">{% endif %}<div><h2 style="margin:0">{{ user_name }}</h2><p style="margin:4px 0">{{ user_email }}</p></div></div></div><h2>📦 Mis pedidos</h2><div class="business-grid">{% for p in pedidos %}<article class="business-card"><div class="business-info"><div class="featured-label">PEDIDO #{{ p.id }}</div><h3>{{ p.business_name }}</h3><p>{{ p.created_at }} · {{ p.status }}</p><div class="card-bottom"><span class="rating">${{ "%.2f"|format(p.total) }}</span><a class="btn primary" href="{{ url_for('confirmado',order_id=p.id) }}">Ver pedido</a></div></div></article>{% else %}<p>Aún no tienes pedidos. ¡Explora los negocios destacados!</p>{% endfor %}</div></main>{% endblock %}
+{% block content %}
+<main class="account-page">
+  <section class="account-header">
+    <div class="account-profile">
+      {% if user_picture %}
+      <img class="account-avatar" src="{{ user_picture }}" alt="Foto de {{ user_name }}">
+      {% else %}
+      <div class="account-avatar account-avatar-fallback">👤</div>
+      {% endif %}
+      <div>
+        <span class="eyebrow">MI CUENTA</span>
+        <h1>Hola, {{ user_name }}</h1>
+        <p>{{ user_email }}</p>
+      </div>
+    </div>
+    <a class="btn account-logout" href="{{ url_for('user_logout') }}">Cerrar sesión</a>
+  </section>
+
+  <section class="account-summary">
+    <div class="account-stat"><span>📦</span><div><strong>{{ pedidos|length }}</strong><small>Pedidos recientes</small></div></div>
+    <div class="account-stat"><span>⭐</span><div><strong>Local</strong><small>Compra en negocios de tu comunidad</small></div></div>
+    <div class="account-stat"><span>🔐</span><div><strong>Google</strong><small>Cuenta protegida</small></div></div>
+  </section>
+
+  <section class="account-orders">
+    <div class="section-title">
+      <div><span class="line"></span><h2>📦 Mis pedidos</h2></div>
+      <a class="account-back" href="{{ url_for('inicio') }}">Seguir comprando →</a>
+    </div>
+    {% if pedidos %}
+    <div class="account-order-list">
+      {% for p in pedidos %}
+      <article class="account-order-card">
+        <div class="order-icon">🛍️</div>
+        <div class="order-main">
+          <div class="order-top">
+            <span class="order-number">PEDIDO #{{ p.id }}</span>
+            <span class="order-status">{{ p.status|replace('_',' ')|capitalize }}</span>
+          </div>
+          <h3>{{ p.business_name }}</h3>
+          <p>{{ p.created_at }}</p>
+        </div>
+        <div class="order-total">
+          <strong>${{ "%.2f"|format(p.total) }}</strong>
+          <a class="btn primary btn-small" href="{{ url_for('confirmado',order_id=p.id) }}">Ver pedido</a>
+        </div>
+      </article>
+      {% endfor %}
+    </div>
+    {% else %}
+    <div class="account-empty">
+      <div>🛍️</div>
+      <h3>Aún no tienes pedidos</h3>
+      <p>Explora los negocios destacados y realiza tu primer pedido.</p>
+      <a class="btn primary" href="{{ url_for('inicio') }}#destacados">⭐ Ver destacados</a>
+    </div>
+    {% endif %}
+  </section>
+</main>
+{% endblock %}
