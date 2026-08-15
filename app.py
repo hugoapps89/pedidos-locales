@@ -602,6 +602,11 @@ def user_logout():
     for k in ("user_logged","user_id","user_name","user_email","user_picture"): session.pop(k,None)
     return redirect(url_for("inicio"))
 
+
+@app.get("/privacidad")
+def privacidad():
+    return render_template("privacy.html")
+
 @app.route("/")
 def inicio():
     c=db()
