@@ -3,6 +3,15 @@
 {% block content %}
 <main>
 <section class="hero"><div class="hero-copy"><span class="eyebrow">COMPRA LOCAL</span><h1>Pide en tus negocios<br><span>locales favoritos</span></h1><p>Descubre productos, arma tu pedido y contacta al negocio de forma fácil y rápida.</p>
+<div class="app-purpose">
+  <strong>Pedidos Locales</strong>
+  <p>
+    Plataforma para descubrir negocios locales, consultar productos y precios,
+    realizar pedidos y dar seguimiento a tus compras.
+    Puedes iniciar sesión con Google para administrar tu cuenta y consultar
+    tus pedidos.
+  </p>
+</div>
 <div class="search"><input id="searchInput" type="search" placeholder="Buscar negocios o productos..."><button type="button">🔎</button></div>
 <div class="benefits"><div><span>🛒</span><b>Fácil y rápido</b><small>Pide en minutos</small></div><div><span>📍</span><b>Apoya lo local</b><small>Fortalece tu comunidad</small></div></div>
 </div><div class="hero-art"><div class="shop">🏪</div><div class="plant">🌿</div></div></section>
@@ -23,3 +32,26 @@
 </div></section>
 </main>
 {% endblock %}
+<style>
+.app-purpose{
+  margin:18px 0 0;
+  max-width:650px;
+  padding:16px 18px;
+  background:rgba(255,255,255,.82);
+  border:1px solid #dce9df;
+  border-radius:14px;
+}
+
+.app-purpose strong{
+  display:block;
+  font-size:1.05rem;
+  color:#14532d;
+  margin-bottom:5px;
+}
+
+.app-purpose p{
+  margin:0;
+  color:#526158;
+  line-height:1.55;
+}
+</style>
