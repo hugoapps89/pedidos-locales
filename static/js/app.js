@@ -201,10 +201,20 @@ document.addEventListener("DOMContentLoaded", () => {
 
       try{
         await requestCustomerLocation();
+        await quoteDelivery();
+
+        const sub=subtotal(), com=commission();
+        if(checkoutSubtotal) checkoutSubtotal.textContent=money(sub);
+        const checkoutDeliveryFee=document.getElementById("checkoutDeliveryFee");
+        if(checkoutDeliveryFee) checkoutDeliveryFee.textContent=money(deliveryFee);
+        const checkoutCommission=document.getElementById("checkoutCommission");
+        if(checkoutCommission) checkoutCommission.textContent=money(com);
+        if(checkoutTotal) checkoutTotal.textContent=money(grandTotal());
       }catch(ex){
         if(customerLocationStatus) {
           customerLocationStatus.textContent=" "+(ex.message||"No fue posible obtener tu ubicación.");
         }
+        if(err) err.textContent=ex.message || "No se pudo calcular el envío.";
       }finally{
         getCustomerLocationBtn.dataset.loading="0";
         getCustomerLocationBtn.disabled=false;
@@ -221,7 +231,8 @@ document.addEventListener("DOMContentLoaded", () => {
       err.textContent="";
       checkoutBtn.disabled=true;
       try {
-        await quoteDelivery();
+        // Abrimos el formulario sin solicitar GPS automáticamente.
+        // El cliente decide cuándo obtener su ubicación con el botón.
         const sub=subtotal(), com=commission();
         if(checkoutSubtotal) checkoutSubtotal.textContent=money(sub);
         const checkoutDeliveryFee=document.getElementById("checkoutDeliveryFee");
@@ -231,7 +242,7 @@ document.addEventListener("DOMContentLoaded", () => {
         checkoutTotal.textContent=money(grandTotal());
         modal.classList.remove("hidden");
       } catch(ex) {
-        err.textContent=ex.message || "No se pudo calcular el envío.";
+        err.textContent=ex.message || "No se pudo preparar el pedido.";
         modal.classList.remove("hidden");
       } finally {
         checkoutBtn.disabled=cart.length===0;
