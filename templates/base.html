@@ -11,15 +11,18 @@
 <header class="topbar">
 <a class="brand" href="{{ url_for('inicio') }}"><span class="brand-icon">🛍️</span><span><strong>Pedidos</strong> <b>Locales</b><small>Apoya lo local</small></span></a>
 <button class="menu-toggle" id="menuToggle" type="button" aria-label="Abrir menú" aria-controls="mobileMenu" aria-expanded="false">☰</button>
-<nav class="desktop-nav"><a href="{{ url_for('inicio') }}">Inicio</a><a href="{{ url_for('inicio') }}#negocios">Negocios</a>{% if admin_logged %}<a href="{{ url_for('admin_orders') }}">Pedidos</a><a href="{{ url_for('admin_couriers') }}">Repartidores</a><a href="{{ url_for('admin_settlements') }}">Liquidaciones</a><a href="{{ url_for('admin_dashboard') }}">Administrador</a><a href="{{ url_for('admin_logout') }}">Salir</a>{% endif %}</nav>
+<nav class="desktop-nav"><a href="{{ url_for('inicio') }}">Inicio</a><a href="{{ url_for('inicio') }}#destacados">⭐ Destacados</a><a href="{{ url_for('inicio') }}#negocios">Negocios</a>{% if admin_logged %}<a href="{{ url_for('admin_orders') }}">Pedidos</a><a href="{{ url_for('admin_couriers') }}">Repartidores</a><a href="{{ url_for('admin_settlements') }}">Liquidaciones</a><a href="{{ url_for('admin_dashboard') }}">Administrador</a><a href="{{ url_for('admin_logout') }}">Salir</a>{% endif %}</nav>
 <div class="cart-mini">🛒 <span id="cartCount">0</span></div>
+{% if user_logged %}<a class="user-menu-link" href="{{ url_for('cuenta_usuario') }}">👤 {{ user_name }}</a><a class="user-menu-link" href="{{ url_for('user_logout') }}">Salir</a>{% else %}<a class="user-menu-link" href="{{ url_for('google_login') }}">🔐 Iniciar sesión</a>{% endif %}
 </header>
 <div class="mobile-menu" id="mobileMenu" aria-hidden="true">
   <div class="mobile-menu-backdrop" data-menu-close></div>
   <aside class="mobile-menu-panel" aria-label="Menú principal">
     <div class="mobile-menu-head"><strong>Menú</strong><button type="button" class="mobile-menu-close" data-menu-close aria-label="Cerrar menú">✕</button></div>
     <a href="{{ url_for('inicio') }}">🏠 Inicio</a>
+    <a href="{{ url_for('inicio') }}#destacados">⭐ Destacados</a>
     <a href="{{ url_for('inicio') }}#negocios">🏪 Negocios</a>
+    {% if user_logged %}<div class="mobile-menu-section">MI CUENTA</div><a href="{{ url_for('cuenta_usuario') }}">👤 {{ user_name }}</a><a href="{{ url_for('user_logout') }}">🚪 Cerrar sesión</a>{% else %}<a href="{{ url_for('google_login') }}">🔐 Iniciar sesión con Google</a>{% endif %}
     {% if admin_logged %}
     <div class="mobile-menu-section">ADMINISTRACIÓN</div>
     <a href="{{ url_for('admin_dashboard') }}">📊 Administrador</a>

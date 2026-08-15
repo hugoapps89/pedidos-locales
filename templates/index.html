@@ -7,6 +7,8 @@
 <div class="benefits"><div><span>🛒</span><b>Fácil y rápido</b><small>Pide en minutos</small></div><div><span>📍</span><b>Apoya lo local</b><small>Fortalece tu comunidad</small></div></div>
 </div><div class="hero-art"><div class="shop">🏪</div><div class="plant">🌿</div></div></section>
 
+{% if destacados %}<section id="destacados" class="section"><div class="section-title"><div><span class="line"></span><h2>⭐ Negocios destacados</h2></div><span>Recomendados para ti</span></div><div class="business-grid" id="featuredGrid">{% for n in destacados %}<article class="business-card" data-search="{{ n.name }} {{ n.category }} {{ n.description }}"><div class="business-banner {% if n.image %}has-image{% else %}green{% endif %}" {% if n.image %}style="background-image:linear-gradient(90deg,rgba(0,0,0,.7),rgba(0,0,0,.1)),url('{{ image_url(n.image) }}')"{% endif %}>{% if not n.image %}<span class="business-logo">{{ '🌮' if n.category == 'Comida' else '✏️' }}</span>{% endif %}<div><strong>{{ n.name.upper() }}</strong><small>{{ n.category }}</small></div></div><div class="business-info"><div class="featured-label">★ DESTACADO</div><h3>{{ n.name }}</h3><p>{{ n.category }} · {{ n.description }}</p><div class="card-bottom"><span class="rating">★ {{ "%.1f"|format(n.rating) }} · {{ n.product_count }} productos</span><a class="btn primary" href="{{ url_for('negocio',negocio_id=n.id) }}">Ver negocio</a></div></div></article>{% endfor %}</div></section>{% endif %}
+
 <section id="negocios" class="section"><div class="section-title"><div><span class="line"></span><h2>Negocios destacados</h2></div><span id="resultText"></span></div>
 <div class="business-grid" id="businessGrid">
 {% for n in negocios %}
