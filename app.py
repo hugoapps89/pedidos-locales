@@ -612,6 +612,10 @@ def terminos():
 def privacidad():
     return render_template("privacy.html")
 
+@app.get("/acerca-de")
+def acerca_de():
+    return render_template("about.html")
+
 @app.route("/")
 def inicio():
     c=db()

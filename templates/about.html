@@ -1,0 +1,104 @@
+{% extends "base.html" %}
+
+{% block title %}Pedidos Locales{% endblock %}
+
+{% block content %}
+<main class="section about-page">
+  <div class="section-title">
+    <div>
+      <span class="line"></span>
+      <h1>Pedidos Locales</h1>
+    </div>
+  </div>
+
+  <article class="about-card">
+
+    <h2>Plataforma de pedidos para negocios locales</h2>
+
+    <p>
+      <strong>Pedidos Locales</strong> es una plataforma que permite a los
+      usuarios descubrir negocios locales, consultar sus productos y precios,
+      realizar pedidos y consultar el estado de sus compras.
+    </p>
+
+    <h2>¿Cómo funciona?</h2>
+
+    <p>
+      Los usuarios pueden explorar los negocios disponibles, consultar sus
+      productos, seleccionar lo que desean comprar y realizar un pedido.
+    </p>
+
+    <p>
+      La plataforma permite administrar la cuenta del usuario y consultar
+      los pedidos realizados.
+    </p>
+
+    <h2>Inicio de sesión con Google</h2>
+
+    <p>
+      Los usuarios pueden iniciar sesión con Google para identificar su
+      cuenta dentro de Pedidos Locales y consultar sus pedidos.
+    </p>
+
+    <p>
+      Pedidos Locales utiliza únicamente la información básica necesaria
+      para identificar la cuenta del usuario. No solicita acceso al
+      contenido de Gmail, Google Drive, Contactos, Calendar ni a otros
+      archivos personales de Google.
+    </p>
+
+    <h2>Información legal</h2>
+
+    <p>
+      Para conocer cómo tratamos la información personal y las condiciones
+      de uso de la plataforma, consulta:
+    </p>
+
+    <p>
+      <a href="{{ url_for('privacidad') }}">Política de Privacidad</a>
+    </p>
+
+    <p>
+      <a href="{{ url_for('terminos') }}">Condiciones del Servicio</a>
+    </p>
+
+    <h2>Contacto</h2>
+
+    <p>
+      Para preguntas relacionadas con Pedidos Locales puedes comunicarte
+      mediante el correo:
+    </p>
+
+    <p>
+      <a href="mailto:hugoc381@gmail.com">hugoc381@gmail.com</a>
+    </p>
+
+  </article>
+</main>
+
+<style>
+.about-page{
+  max-width:900px;
+  margin:0 auto;
+}
+
+.about-card{
+  background:#fff;
+  border:1px solid #e4ebe6;
+  border-radius:20px;
+  padding:28px;
+  box-shadow:0 8px 28px rgba(20,45,28,.06);
+  line-height:1.7;
+}
+
+.about-card h2{
+  margin:24px 0 10px;
+  color:#26352b;
+}
+
+.about-card a{
+  color:#15803d;
+  font-weight:700;
+}
+</style>
+{% endblock %}
