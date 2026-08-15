@@ -312,6 +312,7 @@ def init_db():
             name TEXT NOT NULL, category TEXT NOT NULL, description TEXT DEFAULT '',
             rating DOUBLE PRECISION DEFAULT 5, delivery_time TEXT DEFAULT '20-30 min',
             phone TEXT DEFAULT '', address TEXT DEFAULT '', featured INTEGER DEFAULT 0,
+            featured_order INTEGER DEFAULT 0,
             image TEXT DEFAULT '', latitude DOUBLE PRECISION, longitude DOUBLE PRECISION,
             created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
         );
@@ -370,12 +371,13 @@ def init_db():
             ("delivery_fee","DOUBLE PRECISION DEFAULT 35"),
             ("latitude","DOUBLE PRECISION"),
             ("longitude","DOUBLE PRECISION"),
+            ("featured_order","INTEGER DEFAULT 0"),
         ]:
             c.execute(f"ALTER TABLE businesses ADD COLUMN IF NOT EXISTS {col} {typ}")
 
     else:
         c.executescript("""
-        CREATE TABLE IF NOT EXISTS businesses(id INTEGER PRIMARY KEY AUTOINCREMENT,name TEXT NOT NULL,category TEXT NOT NULL,description TEXT DEFAULT '',rating REAL DEFAULT 5,delivery_time TEXT DEFAULT '20-30 min',phone TEXT DEFAULT '',address TEXT DEFAULT '',featured INTEGER DEFAULT 0,image TEXT DEFAULT '',delivery_enabled INTEGER DEFAULT 1,delivery_fee REAL DEFAULT 35,latitude REAL,longitude REAL,created_at TEXT DEFAULT CURRENT_TIMESTAMP);
+        CREATE TABLE IF NOT EXISTS businesses(id INTEGER PRIMARY KEY AUTOINCREMENT,name TEXT NOT NULL,category TEXT NOT NULL,description TEXT DEFAULT '',rating REAL DEFAULT 5,delivery_time TEXT DEFAULT '20-30 min',phone TEXT DEFAULT '',address TEXT DEFAULT '',featured INTEGER DEFAULT 0,featured_order INTEGER DEFAULT 0,image TEXT DEFAULT '',delivery_enabled INTEGER DEFAULT 1,delivery_fee REAL DEFAULT 35,latitude REAL,longitude REAL,created_at TEXT DEFAULT CURRENT_TIMESTAMP);
         CREATE TABLE IF NOT EXISTS products(id INTEGER PRIMARY KEY AUTOINCREMENT,business_id INTEGER NOT NULL,name TEXT NOT NULL,description TEXT DEFAULT '',price REAL NOT NULL DEFAULT 0,category TEXT DEFAULT 'General',image TEXT DEFAULT '',active INTEGER DEFAULT 1,created_at TEXT DEFAULT CURRENT_TIMESTAMP,FOREIGN KEY(business_id) REFERENCES businesses(id) ON DELETE CASCADE);
         CREATE TABLE IF NOT EXISTS orders(id INTEGER PRIMARY KEY AUTOINCREMENT,business_id INTEGER NOT NULL,customer_name TEXT NOT NULL,customer_phone TEXT NOT NULL,customer_address TEXT NOT NULL,notes TEXT DEFAULT '',payment_method TEXT DEFAULT 'Efectivo',total REAL NOT NULL DEFAULT 0,subtotal REAL NOT NULL DEFAULT 0,delivery_fee REAL NOT NULL DEFAULT 0,delivery_distance_km REAL NOT NULL DEFAULT 0,commission_rate REAL NOT NULL DEFAULT 15,commission_amount REAL NOT NULL DEFAULT 0,status TEXT NOT NULL DEFAULT 'nuevo',created_at TEXT DEFAULT CURRENT_TIMESTAMP,FOREIGN KEY(business_id) REFERENCES businesses(id) ON DELETE CASCADE);
         CREATE TABLE IF NOT EXISTS order_items(id INTEGER PRIMARY KEY AUTOINCREMENT,order_id INTEGER NOT NULL,product_id INTEGER,product_name TEXT NOT NULL,price REAL NOT NULL,quantity INTEGER NOT NULL,subtotal REAL NOT NULL,FOREIGN KEY(order_id) REFERENCES orders(id) ON DELETE CASCADE);
@@ -390,6 +392,7 @@ def init_db():
         if "delivery_fee" not in business_columns: c.execute("ALTER TABLE businesses ADD COLUMN delivery_fee REAL DEFAULT 35")
         if "latitude" not in business_columns: c.execute("ALTER TABLE businesses ADD COLUMN latitude REAL")
         if "longitude" not in business_columns: c.execute("ALTER TABLE businesses ADD COLUMN longitude REAL")
+        if "featured_order" not in business_columns: c.execute("ALTER TABLE businesses ADD COLUMN featured_order INTEGER DEFAULT 0")
         for col, typ in [
             ("subtotal","REAL NOT NULL DEFAULT 0"),
             ("delivery_fee","REAL NOT NULL DEFAULT 0"),
@@ -479,6 +482,8 @@ def init_db():
             "INSERT INTO platform_settings(key,value) VALUES(?,?)",
             (tz_migration_key, "1")
         )
+
+    c.execute("UPDATE businesses SET featured_order=id WHERE featured=1 AND (featured_order IS NULL OR featured_order=0)")
 
     c.commit()
     c.close()
@@ -703,8 +708,8 @@ def acerca_de():
 @app.route("/")
 def inicio():
     c=db()
-    destacados=c.execute("SELECT b.*,COUNT(p.id) product_count FROM businesses b LEFT JOIN products p ON p.business_id=b.id AND p.active=1 WHERE b.featured=1 GROUP BY b.id ORDER BY b.name").fetchall()
-    negocios=c.execute("SELECT b.*,COUNT(p.id) product_count FROM businesses b LEFT JOIN products p ON p.business_id=b.id AND p.active=1 GROUP BY b.id ORDER BY b.featured DESC,b.name").fetchall()
+    destacados=c.execute("SELECT b.*,COUNT(p.id) product_count FROM businesses b LEFT JOIN products p ON p.business_id=b.id AND p.active=1 WHERE b.featured=1 GROUP BY b.id ORDER BY CASE WHEN b.featured_order>0 THEN 0 ELSE 1 END,b.featured_order,b.id").fetchall()
+    negocios=c.execute("SELECT b.*,COUNT(p.id) product_count FROM businesses b LEFT JOIN products p ON p.business_id=b.id AND p.active=1 WHERE b.featured=0 GROUP BY b.id ORDER BY b.name").fetchall()
     c.close()
     return render_template("index.html",negocios=negocios,destacados=destacados)
 
@@ -1610,9 +1615,54 @@ def admin_business_delete(business_id):
 @app.post("/admin/negocios/<int:business_id>/destacado")
 @auth
 def admin_business_featured(business_id):
-    c=db();x=c.execute("SELECT featured FROM businesses WHERE id=?",(business_id,)).fetchone()
-    if x:c.execute("UPDATE businesses SET featured=? WHERE id=?",(0 if x["featured"] else 1,business_id));c.commit()
-    c.close();return redirect(url_for("admin_dashboard"))
+    c=db()
+    x=c.execute("SELECT featured FROM businesses WHERE id=?",(business_id,)).fetchone()
+    if x:
+        if x["featured"]:
+            c.execute("UPDATE businesses SET featured=0,featured_order=0 WHERE id=?",(business_id,))
+        else:
+            row=c.execute("SELECT COALESCE(MAX(featured_order),0) AS max_order FROM businesses WHERE featured=1").fetchone()
+            next_order=int(row["max_order"] or 0)+1
+            c.execute("UPDATE businesses SET featured=1,featured_order=? WHERE id=?",(next_order,business_id))
+        c.commit()
+    c.close()
+    return redirect(url_for("admin_dashboard"))
+
+@app.route("/admin/negocios/destacados", methods=["GET","POST"])
+@auth
+def admin_featured_order():
+    c=db()
+    rows=c.execute("SELECT id,name,category,image,featured_order FROM businesses WHERE featured=1 ORDER BY CASE WHEN featured_order>0 THEN 0 ELSE 1 END,featured_order,id").fetchall()
+
+    for position,row in enumerate(rows,1):
+        if int(row["featured_order"] or 0) != position:
+            c.execute("UPDATE businesses SET featured_order=? WHERE id=?",(position,row["id"]))
+
+    if request.method=="POST":
+        try:
+            business_id=int(request.form.get("business_id",""))
+        except ValueError:
+            business_id=0
+
+        direction=request.form.get("direction","")
+        rows=c.execute("SELECT id,name,category,image,featured_order FROM businesses WHERE featured=1 ORDER BY featured_order,id").fetchall()
+        index=next((i for i,row in enumerate(rows) if row["id"]==business_id),None)
+
+        if index is not None:
+            target=index-1 if direction=="up" else index+1 if direction=="down" else None
+            if target is not None and 0 <= target < len(rows):
+                current=rows[index]
+                other=rows[target]
+                c.execute("UPDATE businesses SET featured_order=? WHERE id=?",(other["featured_order"],current["id"]))
+                c.execute("UPDATE businesses SET featured_order=? WHERE id=?",(current["featured_order"],other["id"]))
+                c.commit()
+
+        c.close()
+        return redirect(url_for("admin_featured_order"))
+
+    rows=c.execute("SELECT id,name,category,image,featured_order FROM businesses WHERE featured=1 ORDER BY featured_order,id").fetchall()
+    c.close()
+    return render_template("admin_featured.html",destacados=rows)
 
 @app.route("/admin/negocios/<int:business_id>/productos")
 @auth

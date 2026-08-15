@@ -1,0 +1,33 @@
+{% extends "base.html" %}
+{% block title %}Ordenar destacados · Pedidos Locales{% endblock %}
+{% block content %}
+<main class="admin-main narrow">
+<a class="back-link" href="{{ url_for('admin_dashboard') }}">← Volver al administrador</a>
+<div class="form-header">
+<span class="eyebrow">NEGOCIOS DESTACADOS</span>
+<h1>Ordenar negocios destacados</h1>
+<p>El orden que coloques aquí será el mismo que verá el cliente en la sección de destacados.</p>
+</div>
+<section class="admin-section">
+{% if destacados %}
+<div style="display:grid;gap:12px;">
+{% for n in destacados %}
+<article style="display:flex;align-items:center;gap:14px;padding:14px 16px;background:#fff;border:1px solid #dce9df;border-radius:14px;">
+<div style="min-width:42px;height:42px;border-radius:12px;background:#f0fdf4;display:grid;place-items:center;font-size:1.15rem;font-weight:800;color:#166534;">{{ loop.index }}</div>
+<div style="width:58px;height:58px;border-radius:12px;overflow:hidden;display:grid;place-items:center;background:#f0fdf4;flex:0 0 58px;">
+{% if n.image %}<img src="{{ image_url(n.image) }}" alt="{{ n.name }}" style="width:100%;height:100%;object-fit:cover;">{% else %}{{ '🌮' if n.category == 'Comida' else '🏪' }}{% endif %}
+</div>
+<div style="flex:1;min-width:0;"><strong style="display:block;font-size:1.05rem;">{{ n.name }}</strong><small style="color:#64748b;">{{ n.category }}</small></div>
+<div style="display:flex;gap:8px;flex-wrap:wrap;justify-content:flex-end;">
+<form method="post"><input type="hidden" name="csrf_token" value="{{ csrf_token() }}"><input type="hidden" name="business_id" value="{{ n.id }}"><input type="hidden" name="direction" value="up"><button class="btn outline" type="submit" {% if loop.first %}disabled{% endif %}>↑ Subir</button></form>
+<form method="post"><input type="hidden" name="csrf_token" value="{{ csrf_token() }}"><input type="hidden" name="business_id" value="{{ n.id }}"><input type="hidden" name="direction" value="down"><button class="btn outline" type="submit" {% if loop.last %}disabled{% endif %}>↓ Bajar</button></form>
+</div>
+</article>
+{% endfor %}
+</div>
+{% else %}
+<div class="empty-box">Todavía no tienes negocios destacados.<br><br>Puedes marcar uno como destacado desde el panel de negocios.</div>
+{% endif %}
+</section>
+</main>
+{% endblock %}
