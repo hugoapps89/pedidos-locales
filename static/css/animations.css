@@ -1,0 +1,70 @@
+/* Animaciones sutiles - Pedidos Locales */
+@media (prefers-reduced-motion: no-preference) {
+  .business-card,
+  .product-card,
+  .benefits > div,
+  .btn,
+  .cart-mini {
+    transition: transform .18s ease, box-shadow .18s ease, border-color .18s ease;
+  }
+
+  .business-card:hover,
+  .product-card:hover {
+    transform: translateY(-3px);
+    box-shadow: 0 16px 34px rgba(20,45,28,.12);
+  }
+
+  .benefits > div:hover {
+    transform: translateY(-2px);
+    border-color: #b9dfc1;
+  }
+
+  .btn:hover { transform: translateY(-1px); }
+
+  .btn:active,
+  .cart-mini:active,
+  .qty button:active {
+    transform: scale(.97);
+  }
+
+  .business-grid .business-card {
+    animation: pl-fade-up .35s ease both;
+  }
+
+  .business-grid .business-card:nth-child(2) { animation-delay: .04s; }
+  .business-grid .business-card:nth-child(3) { animation-delay: .08s; }
+  .business-grid .business-card:nth-child(4) { animation-delay: .12s; }
+
+  .hero-copy { animation: pl-fade-up .45s ease both; }
+  .hero-art { animation: pl-soft-in .55s ease both; }
+
+  .search input:focus,
+  .modal-card input:focus,
+  .modal-card textarea:focus,
+  .modal-card select:focus {
+    border-color: #8bc99a;
+    box-shadow: 0 0 0 3px rgba(22,163,74,.10);
+    transition: border-color .15s ease, box-shadow .15s ease;
+  }
+
+  .modal:not(.hidden) .modal-card {
+    animation: pl-modal-in .2s ease both;
+  }
+
+  .flash { animation: pl-fade-up .25s ease both; }
+}
+
+@keyframes pl-fade-up {
+  from { opacity: 0; transform: translateY(8px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes pl-soft-in {
+  from { opacity: 0; transform: scale(.97); }
+  to { opacity: 1; transform: scale(1); }
+}
+
+@keyframes pl-modal-in {
+  from { opacity: 0; transform: translateY(8px) scale(.985); }
+  to { opacity: 1; transform: translateY(0) scale(1); }
+}
