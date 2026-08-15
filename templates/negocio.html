@@ -53,7 +53,7 @@
 </label>
 <label>Notas <span class="optional">(opcional)</span><textarea name="notes" rows="2" placeholder="Referencias, indicaciones..."></textarea></label>
 <div class="checkout-breakdown"><div><span>Productos</span><b id="checkoutSubtotal">$0.00</b></div>
-{% if negocio.delivery_enabled %}<div><span>Entrega</span><b id="checkoutDeliveryFee">${{ "%.2f"|format(negocio.delivery_fee or 0) }}</b></div>{% endif %}
+{% if negocio.delivery_enabled %}<div><span>Entrega <small id="checkoutDeliveryDistance"></small></span><b id="checkoutDeliveryFee">${{ "%.0f"|format(35 if negocio.delivery_enabled else 0) }}</b></div>{% endif %}
 {% if commission_enabled %}<div><span>Comisión de plataforma</span><b id="checkoutCommission">$0.00</b></div>{% endif %}
 <div class="checkout-total"><span>Total</span><strong id="checkoutTotal">$0.00</strong></div></div>
 <button class="btn primary full" type="submit">✓ Confirmar pedido</button>
@@ -68,7 +68,9 @@ window.NEGOCIO = {
   name: {{ negocio["name"]|tojson }},
   phone: {{ negocio["phone"]|tojson }},
   deliveryEnabled: {{ negocio["delivery_enabled"]|int|tojson }},
-  deliveryFee: {{ (negocio["delivery_fee"] or 0)|float|tojson }},
+  deliveryFee: 35,
+  latitude: {{ (negocio["latitude"] if negocio["latitude"] is not none else none)|tojson }},
+  longitude: {{ (negocio["longitude"] if negocio["longitude"] is not none else none)|tojson }},
   commissionEnabled: {{ commission_enabled|tojson }},
   commissionRate: {{ commission_rate|float|tojson }}
 };

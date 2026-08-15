@@ -29,12 +29,75 @@ document.addEventListener("DOMContentLoaded", () => {
   const money = n => "$" + Number(n).toFixed(2);
 
   const config = window.NEGOCIO || {};
-  const deliveryFee = config.deliveryEnabled ? Number(config.deliveryFee || 0) : 0;
   const commissionRate = config.commissionEnabled ? Number(config.commissionRate || 0) : 0;
+  let deliveryFee = config.deliveryEnabled ? 35 : 0;
+  let deliveryDistanceKm = 0;
+  let customerLocation = null;
 
   function subtotal() { return cart.reduce((s,x)=>s+x.price*x.qty,0); }
   function commission() { return subtotal() * commissionRate / 100; }
   function grandTotal() { return subtotal() + deliveryFee + commission(); }
+  const formatDelivery = n => "$" + Number(n || 0).toFixed(0);
+
+  function updateDeliveryUI() {
+    const d = config.deliveryEnabled ? (deliveryDistanceKm ? `${deliveryDistanceKm.toFixed(1)} km` : "calculando…") : "";
+    const row = document.getElementById("deliveryDistanceDisplay");
+    const checkoutD = document.getElementById("checkoutDeliveryDistance");
+    if(row) row.textContent = d ? `· ${d}` : "";
+    if(checkoutD) checkoutD.textContent = d ? `· ${d}` : "";
+    const feeEl = document.getElementById("deliveryFeeDisplay");
+    const checkoutFeeEl = document.getElementById("checkoutDeliveryFee");
+    if(feeEl) feeEl.textContent = formatDelivery(deliveryFee);
+    if(checkoutFeeEl) checkoutFeeEl.textContent = formatDelivery(deliveryFee);
+  }
+
+  function requestCustomerLocation() {
+    return new Promise((resolve, reject) => {
+      if(!config.deliveryEnabled) {
+        resolve(null);
+        return;
+      }
+      if(customerLocation) {
+        resolve(customerLocation);
+        return;
+      }
+      if(!navigator.geolocation) {
+        reject(new Error("Tu navegador no permite obtener la ubicación."));
+        return;
+      }
+      navigator.geolocation.getCurrentPosition(
+        pos => {
+          customerLocation = {
+            latitude: pos.coords.latitude,
+            longitude: pos.coords.longitude
+          };
+          resolve(customerLocation);
+        },
+        () => reject(new Error("Necesitamos tu ubicación para calcular el costo de envío. Activa la ubicación e inténtalo nuevamente.")),
+        {enableHighAccuracy:true, timeout:10000, maximumAge:60000}
+      );
+    });
+  }
+
+  async function quoteDelivery() {
+    if(!config.deliveryEnabled) {
+      deliveryFee = 0;
+      deliveryDistanceKm = 0;
+      updateDeliveryUI();
+      return true;
+    }
+    if(config.latitude == null || config.longitude == null) {
+      throw new Error("Este negocio aún no tiene configurada su ubicación para calcular el envío.");
+    }
+    const location = await requestCustomerLocation();
+    const r = await fetch(`/api/cotizar-envio/${config.id}?lat=${encodeURIComponent(location.latitude)}&lon=${encodeURIComponent(location.longitude)}`);
+    const data = await r.json();
+    if(!r.ok || !data.ok) throw new Error(data.error || "No se pudo calcular el envío.");
+    deliveryFee = Number(data.delivery_fee || 0);
+    deliveryDistanceKm = Number(data.distance_km || 0);
+    updateDeliveryUI();
+    return true;
+  }
 
   function renderCart() {
     const qty = cart.reduce((s,x)=>s+x.qty,0);
@@ -89,16 +152,26 @@ document.addEventListener("DOMContentLoaded", () => {
   const form=document.getElementById("checkoutForm"), err=document.getElementById("checkoutError"), checkoutTotal=document.getElementById("checkoutTotal");
 
   if(checkoutBtn && modal && form){
-    checkoutBtn.addEventListener("click",()=>{
+    checkoutBtn.addEventListener("click",async()=>{
       if(!cart.length)return;
-      const sub=subtotal(), com=commission();
-      if(checkoutSubtotal) checkoutSubtotal.textContent=money(sub);
-      const checkoutDeliveryFee=document.getElementById("checkoutDeliveryFee");
-      if(checkoutDeliveryFee) checkoutDeliveryFee.textContent=money(deliveryFee);
-      const checkoutCommission=document.getElementById("checkoutCommission");
-      if(checkoutCommission) checkoutCommission.textContent=money(com);
-      checkoutTotal.textContent=money(grandTotal());
-      modal.classList.remove("hidden");
+      err.textContent="";
+      checkoutBtn.disabled=true;
+      try {
+        await quoteDelivery();
+        const sub=subtotal(), com=commission();
+        if(checkoutSubtotal) checkoutSubtotal.textContent=money(sub);
+        const checkoutDeliveryFee=document.getElementById("checkoutDeliveryFee");
+        if(checkoutDeliveryFee) checkoutDeliveryFee.textContent=money(deliveryFee);
+        const checkoutCommission=document.getElementById("checkoutCommission");
+        if(checkoutCommission) checkoutCommission.textContent=money(com);
+        checkoutTotal.textContent=money(grandTotal());
+        modal.classList.remove("hidden");
+      } catch(ex) {
+        err.textContent=ex.message || "No se pudo calcular el envío.";
+        modal.classList.remove("hidden");
+      } finally {
+        checkoutBtn.disabled=cart.length===0;
+      }
     });
     close.addEventListener("click",()=>modal.classList.add("hidden"));
     modal.addEventListener("click",e=>{if(e.target===modal)modal.classList.add("hidden")});
@@ -108,10 +181,11 @@ document.addEventListener("DOMContentLoaded", () => {
       const fd=new FormData(form);
       const payload={
         business_id:window.NEGOCIO.id,
-        customer:{name:fd.get("name"),phone:fd.get("phone"),email:fd.get("email"),address:fd.get("address"),payment_method:fd.get("payment_method"),notes:fd.get("notes")},
+        customer:{name:fd.get("name"),phone:fd.get("phone"),email:fd.get("email"),address:fd.get("address"),payment_method:fd.get("payment_method"),notes:fd.get("notes"),latitude:customerLocation?.latitude,longitude:customerLocation?.longitude},
         items:cart.map(x=>({id:x.id,qty:x.qty}))
       };
       try{
+        await quoteDelivery();
         const csrfToken=document.querySelector('meta[name="csrf-token"]')?.getAttribute("content");
         const r=await fetch("/pedido/crear",{method:"POST",headers:{"Content-Type":"application/json","X-CSRFToken":csrfToken||""},body:JSON.stringify(payload)});
         const data=await r.json();
@@ -126,5 +200,6 @@ document.addEventListener("DOMContentLoaded", () => {
       }catch(ex){err.textContent="No se pudo conectar con el servidor.";}
     });
   }
+  updateDeliveryUI();
   renderCart();
 });

@@ -9,16 +9,33 @@
 <label>Calificación<input name="rating" type="number" step="0.1" min="0" max="5" value="{{ negocio.rating if negocio else 5 }}"></label>
 <label>Tiempo de entrega<input name="delivery_time" value="{{ negocio.delivery_time if negocio else '20-30 min' }}"></label>
 <label>Teléfono / WhatsApp<input name="phone" value="{{ negocio.phone if negocio else '' }}" placeholder="9991234567"></label>
-<label>Dirección<input name="address" value="{{ negocio.address if negocio else '' }}" placeholder="Mérida, Yucatán"></label></div>
+<label>Dirección<input name="address" value="{{ negocio.address if negocio else '' }}" placeholder="Mérida, Yucatán"></label>
+<label>Latitud del negocio<input id="businessLatitude" name="latitude" type="number" step="any" value="{{ negocio.latitude if negocio and negocio.latitude is not none else '' }}" placeholder="20.9674"></label>
+<label>Longitud del negocio<input id="businessLongitude" name="longitude" type="number" step="any" value="{{ negocio.longitude if negocio and negocio.longitude is not none else '' }}" placeholder="-89.5926"></label>
+<div class="form-help" style="grid-column:1/-1"><button type="button" class="btn ghost" id="useBusinessLocation">📍 Usar mi ubicación actual</button> <span id="businessLocationStatus"></span></div></div>
 <label>Descripción<textarea name="description" rows="3">{{ negocio.description if negocio else '' }}</textarea></label>
 <label>Fotografía del negocio<input name="image" type="file" accept=".png,.jpg,.jpeg,.webp,.gif"></label>
 {% if negocio and negocio.image %}<img class="form-preview" src="{{ image_url(negocio.image) }}" alt="Imagen actual">{% endif %}
 <label class="check"><input name="featured" type="checkbox" {% if negocio and negocio.featured %}checked{% endif %}> Mostrar como negocio destacado</label>
 <div class="form-section">
 <h3>🚚 Configuración de envío</h3>
-<p class="form-help">Puedes activar o desactivar el envío para este negocio y definir su costo.</p>
+<p class="form-help">El envío se calcula automáticamente por distancia: hasta 5 km cuesta $35 y después aumenta $5 por cada km adicional. La tarifa se redondea al siguiente peso desde $0.50.</p>
 <label class="check"><input id="delivery_enabled" name="delivery_enabled" type="checkbox" {% if not negocio or negocio.delivery_enabled %}checked{% endif %}> Ofrecer envío a domicilio</label>
-<label>Costo de envío <input id="delivery_fee" name="delivery_fee" type="number" min="0" step="0.01" value="{{ '%.2f'|format(negocio.delivery_fee if negocio and negocio.delivery_fee is not none else 35) }}"></label>
+<label>Costo base de envío <input id="delivery_fee" name="delivery_fee" type="number" min="0" step="0.01" value="35" readonly></label>
 </div>
 <div class="form-actions"><a class="btn ghost" href="{{ url_for('admin_dashboard') }}">Cancelar</a><button class="btn primary">Guardar negocio</button></div></form></main>
+<script>
+document.getElementById("useBusinessLocation")?.addEventListener("click",()=>{
+  const status=document.getElementById("businessLocationStatus");
+  if(!navigator.geolocation){status.textContent="Tu navegador no permite obtener la ubicación.";return;}
+  status.textContent="Obteniendo ubicación…";
+  navigator.geolocation.getCurrentPosition(pos=>{
+    document.getElementById("businessLatitude").value=pos.coords.latitude.toFixed(7);
+    document.getElementById("businessLongitude").value=pos.coords.longitude.toFixed(7);
+    status.textContent="Ubicación capturada correctamente.";
+  },()=>{status.textContent="No se pudo obtener la ubicación. Revisa el permiso del navegador.";},
+  {enableHighAccuracy:true,timeout:10000,maximumAge:60000});
+});
+</script>
+
 {% endblock %}
