@@ -53,28 +53,23 @@ document.addEventListener("DOMContentLoaded", () => {
 
   function requestCustomerLocation() {
     return new Promise((resolve, reject) => {
-      if(!config.deliveryEnabled) {
-        resolve(null);
-        return;
-      }
-      if(customerLocation) {
-        resolve(customerLocation);
-        return;
-      }
-      if(!navigator.geolocation) {
-        reject(new Error("Tu navegador no permite obtener la ubicación."));
-        return;
-      }
+      if(!config.deliveryEnabled) { resolve(null); return; }
+      if(customerLocation) { resolve(customerLocation); return; }
+      if(!navigator.geolocation) { reject(new Error("Tu navegador no permite obtener la ubicación.")); return; }
       navigator.geolocation.getCurrentPosition(
         pos => {
-          customerLocation = {
-            latitude: pos.coords.latitude,
-            longitude: pos.coords.longitude
-          };
+          customerLocation={latitude:pos.coords.latitude,longitude:pos.coords.longitude};
+          const status=document.getElementById("customerLocationStatus");
+          if(status) status.textContent=" ✓ Ubicación obtenida correctamente.";
           resolve(customerLocation);
         },
-        () => reject(new Error("Necesitamos tu ubicación para calcular el costo de envío. Activa la ubicación e inténtalo nuevamente.")),
-        {enableHighAccuracy:true, timeout:10000, maximumAge:60000}
+        err => {
+          const status=document.getElementById("customerLocationStatus");
+          const messages={1:" Permiso de ubicación denegado. Actívalo en el navegador.",2:" No fue posible obtener tu ubicación.",3:" Se agotó el tiempo para obtener tu ubicación."};
+          if(status) status.textContent=messages[err.code]||" No fue posible obtener tu ubicación.";
+          reject(new Error(messages[err.code]?.trim()||"Necesitamos tu ubicación para calcular el costo de envío."));
+        },
+        {enableHighAccuracy:true,timeout:10000,maximumAge:60000}
       );
     });
   }
@@ -148,6 +143,18 @@ document.addEventListener("DOMContentLoaded", () => {
     if(result)result.textContent=q?`${shown} resultado(s)`:"";
   });
 
+  const getCustomerLocationBtn=document.getElementById("getCustomerLocation");
+  const customerLocationStatus=document.getElementById("customerLocationStatus");
+  if(getCustomerLocationBtn){
+    getCustomerLocationBtn.addEventListener("click",async()=>{
+      getCustomerLocationBtn.disabled=true;
+      if(customerLocationStatus) customerLocationStatus.textContent=" Obteniendo ubicación…";
+      try{await requestCustomerLocation();}
+      catch(ex){if(customerLocationStatus && !customerLocationStatus.textContent) customerLocationStatus.textContent=" "+(ex.message||"No fue posible obtener tu ubicación.");}
+      finally{getCustomerLocationBtn.disabled=false;}
+    });
+  }
+
   const modal=document.getElementById("checkoutModal"), close=document.getElementById("closeCheckout");
   const form=document.getElementById("checkoutForm"), err=document.getElementById("checkoutError"), checkoutTotal=document.getElementById("checkoutTotal");
 
@@ -197,7 +204,7 @@ document.addEventListener("DOMContentLoaded", () => {
         }else{
           window.location.href="/pedido/"+data.order_id+"/confirmado";
         }
-      }catch(ex){err.textContent="No se pudo conectar con el servidor.";}
+      }catch(ex){err.textContent=ex.message || "No se pudo completar el pedido.";}
     });
   }
   updateDeliveryUI();

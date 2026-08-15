@@ -43,6 +43,12 @@
 <label>Teléfono / WhatsApp<input name="phone" required placeholder="9991234567" inputmode="tel"></label>
 <!-- <label>Correo electrónico <span class="optional">(necesario para pagar con tarjeta)</span><input name="email" type="email" placeholder="tucorreo@ejemplo.com"></label> -->
 <label>Dirección de entrega<textarea name="address" required rows="2" placeholder="Calle, número, fraccionamiento..."></textarea></label>
+{% if negocio.delivery_enabled %}
+<div class="form-help" style="margin-top:-8px;">
+  <button type="button" class="btn outline" id="getCustomerLocation">📍 Obtener mi ubicación actual</button>
+  <span id="customerLocationStatus"></span>
+</div>
+{% endif %}
 <label>Forma de pago
 <select name="payment_method">
 <option>Efectivo</option>
