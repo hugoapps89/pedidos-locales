@@ -200,6 +200,47 @@ def haversine_km(lat1, lon1, lat2, lon2):
     return earth_radius*2*math.atan2(math.sqrt(a), math.sqrt(1-a))
 
 
+def route_distance_km(lat1, lon1, lat2, lon2):
+    # Distancia real de recorrido por calles usando OSRM/OpenStreetMap.
+    try:
+        coords=f"{float(lon1)},{float(lat1)};{float(lon2)},{float(lat2)}"
+        endpoint=(
+            "https://router.project-osrm.org/route/v1/driving/"
+            + coords
+            + "?overview=false&steps=false"
+        )
+        req=urllib_request.Request(
+            endpoint,
+            headers={
+                "User-Agent":"PedidosLocales/1.0 (https://pedidos-locales.onrender.com)",
+                "Accept":"application/json"
+            },
+            method="GET"
+        )
+        with urllib_request.urlopen(req, timeout=8) as response:
+            result=json.loads(response.read().decode("utf-8"))
+
+        if result.get("code") != "Ok":
+            raise RuntimeError("OSRM no encontró una ruta válida.")
+
+        routes=result.get("routes") or []
+        if not routes or routes[0].get("distance") is None:
+            raise RuntimeError("OSRM no devolvió la distancia de la ruta.")
+
+        distance_km=float(routes[0]["distance"])/1000.0
+        if distance_km < 0 or distance_km > 500:
+            raise RuntimeError("Distancia de ruta fuera de rango.")
+
+        return distance_km
+
+    except Exception as exc:
+        app.logger.warning("No fue posible calcular la ruta por calles: %s", exc)
+        raise RuntimeError(
+            "No fue posible calcular la distancia por calles en este momento. "
+            "Inténtalo nuevamente."
+        )
+
+
 @app.errorhandler(CSRFError)
 def handle_csrf_error(e):
     if request.path == "/pedido/crear" or request.is_json:
@@ -695,8 +736,22 @@ def cotizar_envio(business_id):
         return jsonify(ok=True,delivery_enabled=False,distance_km=0,delivery_fee=0)
     if business["latitude"] is None or business["longitude"] is None:
         return jsonify(ok=False,error="Este negocio aún no tiene configurada su ubicación para calcular el envío."),409
-    distance=haversine_km(lat,lon,float(business["latitude"]),float(business["longitude"]))
-    return jsonify(ok=True,delivery_enabled=True,distance_km=round(distance,2),delivery_fee=calculate_delivery_fee(distance))
+    try:
+        distance=route_distance_km(
+            lat,
+            lon,
+            float(business["latitude"]),
+            float(business["longitude"])
+        )
+    except RuntimeError as exc:
+        return jsonify(ok=False,error=str(exc)),503
+
+    return jsonify(
+        ok=True,
+        delivery_enabled=True,
+        distance_km=round(distance,2),
+        delivery_fee=calculate_delivery_fee(distance)
+    )
 
 
 @app.post("/pedido/crear")
@@ -752,7 +807,17 @@ def crear_pedido():
         if business_lat is None or business_lon is None:
             c.close()
             return jsonify(ok=False,error="Este negocio aún no tiene configurada su ubicación para calcular el envío."),409
-        distance_km=haversine_km(customer_lat,customer_lon,business_lat,business_lon)
+        try:
+            distance_km=route_distance_km(
+                customer_lat,
+                customer_lon,
+                business_lat,
+                business_lon
+            )
+        except RuntimeError as exc:
+            c.close()
+            return jsonify(ok=False,error=str(exc)),503
+
         delivery_fee=calculate_delivery_fee(distance_km)
     else:
         delivery_fee=0.0
