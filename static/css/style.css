@@ -68,3 +68,78 @@ footer{
   .mobile-menu-panel>a:hover{background:#f7faf7;color:var(--green-dark)}
   .mobile-menu-section{font-size:10px;font-weight:900;letter-spacing:.1em;color:var(--green);padding:18px 10px 5px}
 }
+
+
+/* MODO OSCURO */
+html.dark-mode{
+  color-scheme:dark;
+  --green:#4ade80;
+  --green-dark:#86efac;
+  --ink:#e8f0ea;
+  --muted:#a8b4ab;
+  --border:#334139;
+  --bg:#111714;
+  --white:#18201b;
+  --danger:#f87171;
+  --shadow:0 12px 30px rgba(0,0,0,.28);
+}
+html.dark-mode body{background:var(--bg);color:var(--ink)}
+html.dark-mode .topbar{background:#18201b;border-color:var(--border)}
+html.dark-mode nav{color:#c5d0c8}
+html.dark-mode .cart-mini,
+html.dark-mode .business-card,
+html.dark-mode .benefits>div,
+html.dark-mode .product-card,
+html.dark-mode .order-panel,
+html.dark-mode .admin-section,
+html.dark-mode .metric,
+html.dark-mode .admin-business,
+html.dark-mode .login-box,
+html.dark-mode .admin-form,
+html.dark-mode .modal-card,
+html.dark-mode .confirmation-card,
+html.dark-mode .flash{background:#18201b;border-color:var(--border);color:var(--ink)}
+html.dark-mode .hero{background:linear-gradient(110deg,#17251b,#111714)}
+html.dark-mode .business-banner.green,
+html.dark-mode .store-hero.green{background:#0d1711}
+html.dark-mode .business-banner.has-image,
+html.dark-mode .store-hero.has-image{background-color:#0d1711}
+html.dark-mode .search input,
+html.dark-mode .login-box input,
+html.dark-mode .admin-form input,
+html.dark-mode .admin-form textarea,
+html.dark-mode .modal-card input,
+html.dark-mode .modal-card textarea,
+html.dark-mode .modal-card select{background:#101612;color:var(--ink);border-color:var(--border)}
+html.dark-mode input::placeholder,
+html.dark-mode textarea::placeholder{color:#7f8d83}
+html.dark-mode .outline{background:#18201b;color:var(--green-dark);border-color:#3f6b4c}
+html.dark-mode .ghost{background:#243029;color:#d5dfd8}
+html.dark-mode .qty button,
+html.dark-mode .modal-close{background:#243029;color:var(--ink);border-color:var(--border)}
+html.dark-mode .product-image.real{background:#18201b}
+html.dark-mode .product-image.green{background:#1c3021}
+html.dark-mode .form-preview{background:#18201b;border-color:var(--border)}
+html.dark-mode .site-footer{color:var(--muted)}
+html.dark-mode .mobile-menu-panel{background:#18201b;color:var(--ink)}
+html.dark-mode .mobile-menu-panel a{border-color:var(--border)}
+html.dark-mode .mobile-menu-head{border-color:var(--border)}
+html.dark-mode .mobile-theme-toggle{background:#243029;color:var(--ink);border-color:var(--border)}
+html.dark-mode .theme-toggle{background:#243029;color:var(--ink);border-color:var(--border)}
+html.dark-mode .flash.success{border-left-color:var(--green)}
+html.dark-mode .secure{color:var(--green-dark)}
+html.dark-mode .secure small{color:var(--muted)}
+html.dark-mode .section-title h2,
+html.dark-mode .admin-title-row h3,
+html.dark-mode .admin-business-info h3,
+html.dark-mode .product-body h3,
+html.dark-mode .product-admin-body h3,
+html.dark-mode .order-head h2{color:var(--ink)}
+html.dark-mode .modal{background:rgba(0,0,0,.72)}
+
+
+.topbar-tools{display:flex;align-items:center;gap:10px}
+.theme-toggle,.mobile-theme-toggle{border:1px solid var(--border);border-radius:10px;background:#fff;color:#465049;padding:8px 11px;cursor:pointer;font-size:12px;font-weight:700}
+.theme-toggle{display:flex;align-items:center;gap:6px}
+.mobile-theme-toggle{width:100%;text-align:left;margin:8px 0 4px}
+@media(max-width:850px){.theme-toggle-text{display:none}.topbar-tools{gap:7px}}

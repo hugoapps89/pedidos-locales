@@ -13,7 +13,12 @@
 <a class="brand" href="{{ url_for('inicio') }}"><span class="brand-icon">🛍</span><span><strong>Pedidos Locales</strong><small>Apoya lo local</small></span></a>
 <button class="menu-toggle" id="menuToggle" type="button" aria-label="Abrir menú" aria-controls="mobileMenu" aria-expanded="false">☰</button>
 <nav class="desktop-nav"><a href="{{ url_for('inicio') }}">Inicio</a><a href="{{ url_for('inicio') }}#destacados">⭐ Destacados</a><a href="{{ url_for('inicio') }}#negocios">Todos los negocios</a>{% if admin_logged %}<a href="{{ url_for('admin_orders') }}">Pedidos</a><a href="{{ url_for('admin_couriers') }}">Repartidores</a><a href="{{ url_for('admin_settlements') }}">Liquidaciones</a><a href="{{ url_for('admin_dashboard') }}">Administrador</a><a href="{{ url_for('admin_logout') }}">Salir</a>{% endif %}</nav>
+<div class="topbar-tools">
+<button class="theme-toggle" id="themeToggle" type="button" aria-label="Activar modo oscuro" title="Modo oscuro">
+  <span id="themeToggleIcon">🌙</span><span class="theme-toggle-text">Modo oscuro</span>
+</button>
 <div class="cart-mini">🛒 <span id="cartCount">0</span></div>
+</div>
 {% if user_logged %}
 <details class="user-menu">
   <summary class="user-menu-trigger">
@@ -50,6 +55,9 @@
     <a href="{{ url_for('inicio') }}#destacados">⭐ Destacados</a>
     <a href="{{ url_for('inicio') }}#negocios">🏪 Negocios</a>
     {% if user_logged %}
+<button class="mobile-theme-toggle" id="mobileThemeToggle" type="button">
+  <span id="mobileThemeToggleIcon">🌙</span> <span id="mobileThemeToggleText">Activar modo oscuro</span>
+</button>
 <div class="mobile-menu-section">MI CUENTA</div>
 <a href="{{ url_for('cuenta_usuario') }}">👤 Mi cuenta</a>
 <a href="{{ url_for('cuenta_usuario') }}">📦 Mis pedidos</a>
@@ -89,6 +97,46 @@ document.addEventListener("DOMContentLoaded",()=>{
   });
 });
 </script>
+
+<script>
+(function(){
+  const key = "pedidos-locales-theme";
+  const root = document.documentElement;
+  const toggle = document.getElementById("themeToggle");
+  const mobileToggle = document.getElementById("mobileThemeToggle");
+
+  function applyTheme(theme){
+    const dark = theme === "dark";
+    root.classList.toggle("dark-mode", dark);
+    const icon = document.getElementById("themeToggleIcon");
+    const text = document.querySelector(".theme-toggle-text");
+    const mobileIcon = document.getElementById("mobileThemeToggleIcon");
+    const mobileText = document.getElementById("mobileThemeToggleText");
+    if(icon) icon.textContent = dark ? "☀️" : "🌙";
+    if(text) text.textContent = dark ? "Modo claro" : "Modo oscuro";
+    if(mobileIcon) mobileIcon.textContent = dark ? "☀️" : "🌙";
+    if(mobileText) mobileText.textContent = dark ? "Usar modo claro" : "Activar modo oscuro";
+    if(toggle){
+      toggle.setAttribute("aria-label", dark ? "Activar modo claro" : "Activar modo oscuro");
+      toggle.setAttribute("title", dark ? "Modo claro" : "Modo oscuro");
+    }
+  }
+
+  let saved = null;
+  try { saved = localStorage.getItem(key); } catch(e) {}
+  applyTheme(saved === "dark" ? "dark" : "light");
+
+  function toggleTheme(){
+    const next = root.classList.contains("dark-mode") ? "light" : "dark";
+    applyTheme(next);
+    try { localStorage.setItem(key, next); } catch(e) {}
+  }
+
+  toggle?.addEventListener("click", toggleTheme);
+  mobileToggle?.addEventListener("click", toggleTheme);
+})();
+</script>
+
 <script src="{{ url_for('static', filename='js/app.js') }}"></script>
 </body>
 </html>
