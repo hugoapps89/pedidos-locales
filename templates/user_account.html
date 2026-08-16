@@ -36,9 +36,20 @@
         <div class="order-icon">🛍️</div>
         <div class="order-main">
           <div class="order-top">
-            <span class="order-number">PEDIDO #{{ p.id }}</span>
-            <span class="order-status">{{ p.status|replace('_',' ')|capitalize }}</span>
-          </div>
+    <span class="order-number">PEDIDO #{{ p.id }}</span>
+
+    {% set status_labels = {
+        'nuevo': 'Nuevo',
+        'preparando': 'Preparando',
+        'camino': 'En camino',
+        'entregado': 'Entregado',
+        'cancelado': 'Cancelado'
+    } %}
+
+    <span class="account-order-status status-{{ p.status }}">
+        {{ status_labels.get(p.status, p.status|replace('_',' ')|capitalize) }}
+    </span>
+</div>
           <h3>{{ p.business_name }}</h3>
           <p>{{ p.created_at }}</p>
         </div>
@@ -59,4 +70,51 @@
     {% endif %}
   </section>
 </main>
+<style>
+.account-order-status {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    padding: 7px 13px;
+    border-radius: 999px;
+    font-size: 13px;
+    font-weight: 800;
+    line-height: 1;
+    white-space: nowrap;
+    background: #eef3f0;
+    color: #4b5a52;
+}
+
+.account-order-status.status-nuevo {
+    background: #fff4d6;
+    color: #9a6700;
+}
+
+.account-order-status.status-preparando {
+    background: #e8f1ff;
+    color: #245ea9;
+}
+
+.account-order-status.status-camino {
+    background: #eee8ff;
+    color: #6842a5;
+}
+
+.account-order-status.status-entregado {
+    background: #e3f7eb;
+    color: #187343;
+}
+
+.account-order-status.status-cancelado {
+    background: #fde8e8;
+    color: #b42318;
+}
+
+@media (max-width: 600px) {
+    .account-order-status {
+        font-size: 12px;
+        padding: 6px 10px;
+    }
+}
+</style>
 {% endblock %}
