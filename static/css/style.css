@@ -272,3 +272,104 @@ html.dark-mode .confirm-items>div{
 html.dark-mode .confirm-items strong{
     color:#86efac;
 }
+/* CORRECCIÓN DE MI CUENTA Y MIS PEDIDOS - MODO OSCURO */
+
+html.dark-mode .account-page{
+    color:#e8f0ea;
+}
+
+/* Cabecera de la cuenta */
+html.dark-mode .account-header{
+    background:#18201b;
+    border-color:#334139;
+    color:#e8f0ea;
+}
+
+html.dark-mode .account-profile h1{
+    color:#f1f5f2;
+}
+
+html.dark-mode .account-profile p{
+    color:#b8c4bc;
+}
+
+html.dark-mode .account-logout{
+    color:#86efac;
+    background:#18201b;
+    border-color:#3f6b4c;
+}
+
+/* Tarjetas de resumen */
+html.dark-mode .account-summary{
+    background:transparent;
+}
+
+html.dark-mode .account-stat{
+    background:#18201b;
+    border-color:#334139;
+    color:#e8f0ea;
+}
+
+html.dark-mode .account-stat strong{
+    color:#f1f5f2;
+}
+
+html.dark-mode .account-stat small{
+    color:#a8b4ab;
+}
+
+/* Título de Mis pedidos */
+html.dark-mode .account-orders .section-title h2{
+    color:#f1f5f2;
+}
+
+html.dark-mode .account-back{
+    color:#4ade80;
+}
+
+/* Tarjetas individuales de pedidos */
+html.dark-mode .account-order-card{
+    background:#18201b;
+    border-color:#334139;
+    color:#e8f0ea;
+    box-shadow:0 12px 30px rgba(0,0,0,.22);
+}
+
+html.dark-mode .account-order-card .order-number{
+    color:#dce7df;
+}
+
+html.dark-mode .account-order-card .order-status{
+    background:#203b29;
+    color:#86efac;
+}
+
+html.dark-mode .account-order-card .order-main h3{
+    color:#f1f5f2;
+}
+
+html.dark-mode .account-order-card .order-main p{
+    color:#a8b4ab;
+}
+
+html.dark-mode .account-order-card .order-total strong{
+    color:#86efac;
+}
+
+html.dark-mode .account-order-card .order-icon{
+    background:#21382a;
+}
+
+html.dark-mode .account-empty{
+    background:#18201b;
+    border-color:#334139;
+    color:#e8f0ea;
+}
+
+html.dark-mode .account-empty h3{
+    color:#f1f5f2;
+}
+
+html.dark-mode .account-empty p{
+    color:#a8b4ab;
+}
