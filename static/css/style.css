@@ -373,3 +373,56 @@ html.dark-mode .account-empty h3{
 html.dark-mode .account-empty p{
     color:#a8b4ab;
 }
+/* =========================================================
+   PRIVACIDAD Y TÉRMINOS - MODO OSCURO
+   ========================================================= */
+
+html.dark-mode .privacy-page{
+    color:#e8f0ea;
+}
+
+html.dark-mode .privacy-page .section-title h1,
+html.dark-mode .privacy-page .section-title h2,
+html.dark-mode .privacy-page .section-title h3{
+    color:#f1f5f2 !important;
+}
+
+html.dark-mode .privacy-page .privacy-card{
+    background:#18201b !important;
+    color:#d0dbd3 !important;
+    border-color:#334139 !important;
+}
+
+html.dark-mode .privacy-page .privacy-card h1,
+html.dark-mode .privacy-page .privacy-card h2,
+html.dark-mode .privacy-page .privacy-card h3,
+html.dark-mode .privacy-page .privacy-card h4{
+    color:#f1f5f2 !important;
+}
+
+html.dark-mode .privacy-page .privacy-card p,
+html.dark-mode .privacy-page .privacy-card li{
+    color:#d0dbd3 !important;
+}
+
+html.dark-mode .privacy-page .privacy-card strong,
+html.dark-mode .privacy-page .privacy-card b{
+    color:#f1f5f2 !important;
+}
+
+html.dark-mode .privacy-page .privacy-updated{
+    color:#a8b4ab !important;
+}
+
+html.dark-mode .privacy-page .privacy-card a{
+    color:#4ade80 !important;
+}
+
+html.dark-mode .privacy-page .privacy-card a:hover{
+    color:#86efac !important;
+}
+
+html.dark-mode .privacy-page .privacy-card ul,
+html.dark-mode .privacy-page .privacy-card ol{
+    color:#d0dbd3 !important;
+}
