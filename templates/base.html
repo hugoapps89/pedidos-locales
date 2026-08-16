@@ -35,8 +35,17 @@
       </div>
     </div>
     <div class="user-menu-divider"></div>
-    <a href="{{ url_for('cuenta_usuario') }}">👤 <span>Mi cuenta</span></a>
-    <a href="{{ url_for('cuenta_usuario') }}">📦 <span>Mis pedidos</span></a>
+    <a href="{{ url_for('cuenta_usuario') }}">
+    👤 <span>Mi cuenta</span>
+</a>
+
+<a href="{{ url_for('favoritos') }}">
+    ❤️ <span>Mis favoritos</span>
+</a>
+
+<a href="{{ url_for('cuenta_usuario') }}">
+    📦 <span>Mis pedidos</span>
+</a>
     <a href="{{ url_for('inicio') }}#destacados">⭐ <span>Negocios destacados</span></a>
     <a href="{{ url_for('inicio') }}#negocios">🏪 <span>Todos los negocios</span></a>
     <div class="user-menu-divider"></div>
@@ -60,6 +69,7 @@
 </button>
 <div class="mobile-menu-section">MI CUENTA</div>
 <a href="{{ url_for('cuenta_usuario') }}">👤 Mi cuenta</a>
+<a href="{{ url_for('favoritos') }}">❤️ Mis favoritos</a>
 <a href="{{ url_for('cuenta_usuario') }}">📦 Mis pedidos</a>
 <a href="{{ url_for('inicio') }}#destacados">⭐ Negocios destacados</a>
 <a href="{{ url_for('inicio') }}#negocios">🏪 Todos los negocios</a>

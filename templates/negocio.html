@@ -11,11 +11,63 @@
 <div><div class="section-title"><div><span class="line"></span><h2>Productos</h2></div></div>
 <div class="products-grid">
 {% for p in productos %}
-<article class="product-card">
-{% if p.image %}<img class="product-image real" src="{{ image_url(p.image) }}" alt="{{ p.name }}">{% else %}<div class="product-image green">{{ '🌮' if negocio.category == 'Comida' else '📚' }}</div>{% endif %}
-<div class="product-body"><span class="product-category">{{ p.category }}</span><h3>{{ p.name }}</h3><p>{{ p.description }}</p><div class="product-bottom"><strong>${{ "%.2f"|format(p.price) }}</strong><button class="btn outline add-product" data-id="{{ p.id }}" data-name="{{ p.name }}" data-price="{{ p.price }}">＋ Agregar</button></div></div>
+<article class="product-card" data-product-id="{{ p.id }}">
+
+{% if p.image %}
+<img
+    class="product-image real"
+    src="{{ image_url(p.image) }}"
+    alt="{{ p.name }}"
+>
+{% else %}
+<div class="product-image green">
+    {{ '🌮' if negocio.category == 'Comida' else '📚' }}
+</div>
+{% endif %}
+
+<button
+    type="button"
+    class="favorite-btn"
+    data-favorite-id="{{ p.id }}"
+    aria-label="Agregar {{ p.name }} a favoritos"
+    aria-pressed="false"
+>
+    ♡
+</button>
+
+<div class="product-body">
+
+    <span class="product-category">
+        {{ p.category }}
+    </span>
+
+    <h3>{{ p.name }}</h3>
+
+    <p>{{ p.description }}</p>
+
+    <div class="product-bottom">
+
+        <strong>
+            ${{ "%.2f"|format(p.price) }}
+        </strong>
+
+        <button
+            class="btn outline add-product"
+            data-id="{{ p.id }}"
+            data-name="{{ p.name }}"
+            data-price="{{ p.price }}"
+        >
+            ＋ Agregar
+        </button>
+
+    </div>
+
+</div>
+
 </article>
-{% else %}<p>Este negocio todavía no tiene productos activos.</p>{% endfor %}
+{% else %}
+<p>Este negocio todavía no tiene productos activos.</p>
+{% endfor %}
 </div></div>
 
 <aside class="order-panel">
@@ -80,5 +132,142 @@ window.NEGOCIO = {
   commissionEnabled: {{ commission_enabled|tojson }},
   commissionRate: {{ commission_rate|float|tojson }}
 };
+</script>
+<script>
+document.addEventListener("DOMContentLoaded", () => {
+
+    const favoriteButtons = document.querySelectorAll(".favorite-btn");
+
+    if (!favoriteButtons.length) return;
+
+    const csrfToken =
+        document.querySelector('meta[name="csrf-token"]')?.getAttribute("content") || "";
+
+    function setFavoriteState(button, favorite) {
+        button.textContent = favorite ? "♥" : "♡";
+        button.classList.toggle("is-favorite", favorite);
+        button.setAttribute("aria-pressed", favorite ? "true" : "false");
+
+        const productName =
+            document.querySelector(
+                `.product-card[data-product-id="${button.dataset.favoriteId}"] h3`
+            )?.textContent?.trim() || "este producto";
+
+        button.setAttribute(
+            "aria-label",
+            favorite
+                ? `Quitar ${productName} de favoritos`
+                : `Agregar ${productName} a favoritos`
+        );
+    }
+
+    async function loadFavorites() {
+        try {
+            const response = await fetch("/api/favoritos", {
+                credentials: "same-origin"
+            });
+
+            if (response.status === 401) {
+                favoriteButtons.forEach(button => {
+                    setFavoriteState(button, false);
+                });
+                return;
+            }
+
+            if (!response.ok) return;
+
+            const data = await response.json();
+
+            if (!data.ok || !Array.isArray(data.favorites)) return;
+
+            const favoriteIds = new Set(
+                data.favorites.map(product => String(product.id))
+            );
+
+            favoriteButtons.forEach(button => {
+                setFavoriteState(
+                    button,
+                    favoriteIds.has(String(button.dataset.favoriteId))
+                );
+            });
+
+        } catch (error) {
+            console.error("No fue posible cargar los favoritos:", error);
+        }
+    }
+
+    favoriteButtons.forEach(button => {
+
+        button.addEventListener("click", async (event) => {
+
+            event.preventDefault();
+            event.stopPropagation();
+
+            const productId = button.dataset.favoriteId;
+
+            if (!productId) return;
+
+            const previousState =
+                button.getAttribute("aria-pressed") === "true";
+
+            button.disabled = true;
+
+            try {
+
+                const response = await fetch("/api/favoritos/toggle", {
+                    method: "POST",
+                    credentials: "same-origin",
+                    headers: {
+                        "Content-Type": "application/json",
+                        "X-CSRFToken": csrfToken
+                    },
+                    body: JSON.stringify({
+                        product_id: Number(productId)
+                    })
+                });
+
+                if (response.status === 401) {
+
+                    const next =
+                        window.location.pathname +
+                        window.location.search;
+
+                    window.location.href =
+                        "/auth/google?next=" +
+                        encodeURIComponent(next);
+
+                    return;
+                }
+
+                const data = await response.json();
+
+                if (!response.ok || !data.ok) {
+                    throw new Error(
+                        data.error || "No fue posible actualizar favoritos."
+                    );
+                }
+
+                setFavoriteState(button, Boolean(data.favorite));
+
+            } catch (error) {
+
+                console.error("Error al actualizar favorito:", error);
+
+                setFavoriteState(button, previousState);
+
+                alert(
+                    "No fue posible actualizar el favorito. Inténtalo nuevamente."
+                );
+
+            } finally {
+                button.disabled = false;
+            }
+
+        });
+
+    });
+
+    loadFavorites();
+});
 </script>
 {% endblock %}

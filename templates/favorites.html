@@ -1,0 +1,276 @@
+{% extends "base.html" %}
+
+{% block title %}
+Mis favoritos · Pedidos Locales
+{% endblock %}
+
+{% block content %}
+
+<main class="section favorites-page">
+
+    <div class="section-title">
+        <div>
+            <span class="line"></span>
+            <h2>❤️ Mis favoritos</h2>
+        </div>
+
+        <span>
+            Productos que guardaste
+        </span>
+    </div>
+
+    <div
+        id="favoritesGrid"
+        class="products-grid favorites-grid"
+    >
+        <p class="favorites-loading">
+            Cargando favoritos...
+        </p>
+    </div>
+
+</main>
+
+<script>
+document.addEventListener("DOMContentLoaded", async () => {
+
+    const grid = document.getElementById("favoritesGrid");
+
+    if (!grid) return;
+
+    const csrfToken =
+        document.querySelector('meta[name="csrf-token"]')
+        ?.getAttribute("content") || "";
+
+    function escapeHtml(value) {
+        const div = document.createElement("div");
+        div.textContent = value ?? "";
+        return div.innerHTML;
+    }
+
+    function formatPrice(value) {
+        return Number(value || 0).toLocaleString("es-MX", {
+            style: "currency",
+            currency: "MXN"
+        });
+    }
+
+    function renderFavorites(favorites) {
+
+        if (!favorites.length) {
+
+            grid.innerHTML = `
+                <div class="favorites-empty">
+                    <div class="favorites-empty-icon">♡</div>
+                    <h3>Aún no tienes favoritos</h3>
+                    <p>
+                        Cuando encuentres un producto que te guste,
+                        toca el corazón para guardarlo aquí.
+                    </p>
+                    <a class="btn primary" href="{{ url_for('inicio') }}">
+                        Explorar negocios
+                    </a>
+                </div>
+            `;
+
+            return;
+        }
+
+        grid.innerHTML = favorites.map(product => {
+
+            const image = product.image
+                ? `
+                    <img
+                        class="product-image real"
+                        src="${escapeHtml(product.image)}"
+                        alt="${escapeHtml(product.name)}"
+                    >
+                `
+                : `
+                    <div class="product-image green">
+                        🛍️
+                    </div>
+                `;
+
+            return `
+                <article
+                    class="product-card favorite-product-card"
+                    data-product-id="${product.id}"
+                >
+
+                    ${image}
+
+                    <button
+                        type="button"
+                        class="favorite-btn is-favorite"
+                        data-favorite-id="${product.id}"
+                        aria-label="Quitar ${escapeHtml(product.name)} de favoritos"
+                        aria-pressed="true"
+                    >
+                        ♥
+                    </button>
+
+                    <div class="product-body">
+
+                        <span class="product-category">
+                            ${escapeHtml(product.category || "Producto")}
+                        </span>
+
+                        <h3>
+                            ${escapeHtml(product.name)}
+                        </h3>
+
+                        <p>
+                            ${escapeHtml(product.description || "")}
+                        </p>
+
+                        <small class="favorite-business">
+                            🏪 ${escapeHtml(product.business_name)}
+                        </small>
+
+                        <div class="product-bottom">
+
+                            <strong>
+                                ${formatPrice(product.price)}
+                            </strong>
+
+                            <a
+                                class="btn outline"
+                                href="/negocio/${product.business_id}"
+                            >
+                                Ver producto
+                            </a>
+
+                        </div>
+
+                    </div>
+
+                </article>
+            `;
+
+        }).join("");
+
+        grid.querySelectorAll(".favorite-btn").forEach(button => {
+
+            button.addEventListener("click", async () => {
+
+                const productId = button.dataset.favoriteId;
+
+                button.disabled = true;
+
+                try {
+
+                    const response = await fetch(
+                        "/api/favoritos/toggle",
+                        {
+                            method: "POST",
+                            credentials: "same-origin",
+                            headers: {
+                                "Content-Type": "application/json",
+                                "X-CSRFToken": csrfToken
+                            },
+                            body: JSON.stringify({
+                                product_id: Number(productId)
+                            })
+                        }
+                    );
+
+                    const data = await response.json();
+
+                    if (!response.ok || !data.ok) {
+                        throw new Error(
+                            data.error ||
+                            "No fue posible actualizar el favorito."
+                        );
+                    }
+
+                    if (!data.favorite) {
+                        const card =
+                            button.closest(".favorite-product-card");
+
+                        card?.remove();
+
+                        if (!grid.querySelector(".favorite-product-card")) {
+                            renderFavorites([]);
+                        }
+                    }
+
+                } catch (error) {
+
+                    console.error(
+                        "Error al quitar favorito:",
+                        error
+                    );
+
+                    alert(
+                        "No fue posible quitar el favorito. Inténtalo nuevamente."
+                    );
+
+                    button.disabled = false;
+                }
+
+            });
+
+        });
+    }
+
+    try {
+
+        const response = await fetch(
+            "/api/favoritos",
+            {
+                credentials: "same-origin"
+            }
+        );
+
+        if (response.status === 401) {
+            window.location.href =
+                "{{ url_for('google_login', next=url_for('favoritos')) }}";
+            return;
+        }
+
+        if (!response.ok) {
+            throw new Error(
+                "No fue posible cargar los favoritos."
+            );
+        }
+
+        const data = await response.json();
+
+        if (!data.ok) {
+            throw new Error(
+                data.error ||
+                "No fue posible cargar los favoritos."
+            );
+        }
+
+        renderFavorites(data.favorites || []);
+
+    } catch (error) {
+
+        console.error(
+            "Error cargando favoritos:",
+            error
+        );
+
+        grid.innerHTML = `
+            <div class="favorites-empty">
+                <div class="favorites-empty-icon">⚠️</div>
+                <h3>No pudimos cargar tus favoritos</h3>
+                <p>
+                    Inténtalo nuevamente en unos momentos.
+                </p>
+                <button
+                    class="btn primary"
+                    type="button"
+                    onclick="location.reload()"
+                >
+                    Reintentar
+                </button>
+            </div>
+        `;
+    }
+
+});
+</script>
+
+{% endblock %}
