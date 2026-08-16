@@ -171,3 +171,104 @@ html.dark-mode .mobile-menu-panel button:hover {
 html.dark-mode .mobile-menu-section {
     color: #86efac !important;
 }
+/* CORRECCIÓN DE CONTRASTE - SEGUIMIENTO DEL PEDIDO EN MODO OSCURO */
+
+html.dark-mode .confirmation-card{
+    background:#18201b;
+    border-color:#334139;
+    color:#e8f0ea;
+}
+
+html.dark-mode .confirmation-card p{
+    color:#b8c4bc;
+}
+
+html.dark-mode .confirmation-card h1{
+    color:#f1f5f2;
+}
+
+/* Estados del seguimiento */
+html.dark-mode .track-step{
+    opacity:.65;
+}
+
+html.dark-mode .track-step.current,
+html.dark-mode .track-step.done{
+    opacity:1;
+}
+
+html.dark-mode .track-step b{
+    color:#e8f0ea;
+}
+
+html.dark-mode .track-step small{
+    color:#a8b4ab;
+}
+
+html.dark-mode .track-dot{
+    background:#29352e;
+    color:#d5dfd8;
+}
+
+html.dark-mode .track-step.done .track-dot{
+    background:#244b31;
+    color:#86efac;
+}
+
+html.dark-mode .track-step.current .track-dot{
+    background:#4ade80;
+    color:#102016;
+    box-shadow:0 0 0 5px #214c30;
+}
+
+html.dark-mode .track-line{
+    background:#3a4740;
+}
+
+html.dark-mode .track-line.filled{
+    background:#4ade80;
+}
+
+/* Estado en vivo */
+html.dark-mode .live-status{
+    background:#182d20;
+    border-color:#315b3d;
+    color:#86efac;
+}
+
+html.dark-mode .live-dot{
+    background:#4ade80;
+    box-shadow:0 0 0 4px #285438;
+}
+
+/* Tarjeta de detalles del pedido */
+html.dark-mode .confirm-details{
+    background:#101612;
+    border:1px solid #334139;
+}
+
+html.dark-mode .confirm-details span{
+    color:#a8b4ab;
+}
+
+html.dark-mode .confirm-details b{
+    color:#e8f0ea;
+}
+
+/* Resumen de productos */
+html.dark-mode .confirm-items{
+    color:#e8f0ea;
+}
+
+html.dark-mode .confirm-items h3{
+    color:#f1f5f2;
+}
+
+html.dark-mode .confirm-items>div{
+    color:#dbe5de;
+    border-bottom-color:#334139;
+}
+
+html.dark-mode .confirm-items strong{
+    color:#86efac;
+}
