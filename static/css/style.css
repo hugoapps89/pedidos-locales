@@ -143,3 +143,31 @@ html.dark-mode .modal{background:rgba(0,0,0,.72)}
 .theme-toggle{display:flex;align-items:center;gap:6px}
 .mobile-theme-toggle{width:100%;text-align:left;margin:8px 0 4px}
 @media(max-width:850px){.theme-toggle-text{display:none}.topbar-tools{gap:7px}}
+/* MEJORA DE CONTRASTE DEL MENÚ EN MODO OSCURO */
+html.dark-mode .topbar nav a,
+html.dark-mode .topbar nav button,
+html.dark-mode .nav-links a,
+html.dark-mode .nav-links button {
+    color: #e8f0ea !important;
+}
+
+html.dark-mode .topbar nav a:hover,
+html.dark-mode .topbar nav button:hover,
+html.dark-mode .nav-links a:hover,
+html.dark-mode .nav-links button:hover {
+    color: #86efac !important;
+}
+
+html.dark-mode .mobile-menu-panel a,
+html.dark-mode .mobile-menu-panel button {
+    color: #e8f0ea !important;
+}
+
+html.dark-mode .mobile-menu-panel a:hover,
+html.dark-mode .mobile-menu-panel button:hover {
+    color: #86efac !important;
+}
+
+html.dark-mode .mobile-menu-section {
+    color: #86efac !important;
+}
