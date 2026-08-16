@@ -70,10 +70,13 @@
     async function checkNewOrders() {
         try {
             const response = await fetch(
-                "{{ url_for('admin_new_orders_count') }}",
+                "{{ url_for('admin_new_orders_data') }}",
                 {
                     cache: "no-store",
-                    credentials: "same-origin"
+                    credentials: "same-origin",
+                    headers: {
+                        "X-Requested-With": "XMLHttpRequest"
+                    }
                 }
             );
 
@@ -91,7 +94,7 @@
                 newCountElement.textContent = data.count;
             }
 
-            if (allCountElement) {
+            if (allCountElement && data.total !== undefined) {
                 allCountElement.textContent = data.total;
             }
 
@@ -101,7 +104,7 @@
             }
 
             if (
-                data.latest_id &&
+                data.latest_id !== null &&
                 data.latest_id > lastNewOrderId
             ) {
                 const alertBox =
@@ -110,25 +113,20 @@
                 const message =
                     document.getElementById("new-order-message");
 
-                message.textContent =
-                    "Se recibió el pedido #" +
-                    data.latest_id +
-                    ". Hay " +
-                    data.count +
-                    " pedido(s) nuevo(s).";
+                if (message) {
+                    message.textContent =
+                        "Se recibió el pedido #" +
+                        data.latest_id +
+                        ". Hay " +
+                        data.count +
+                        " pedido(s) nuevo(s).";
+                }
 
-                alertBox.style.display = "block";
+                if (alertBox) {
+                    alertBox.style.display = "block";
+                }
 
                 lastNewOrderId = data.latest_id;
-
-                /*
-                 * Dejamos visible la alerta unos segundos
-                 * y después recargamos para mostrar el nuevo
-                 * pedido directamente en la lista.
-                 */
-                setTimeout(function () {
-                    location.reload();
-                }, 2500);
             }
 
         } catch (error) {

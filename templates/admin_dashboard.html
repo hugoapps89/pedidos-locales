@@ -8,5 +8,175 @@
 {% for n in negocios %}<article class="admin-business"><div class="admin-business-img {% if n.image %}has-image{% endif %}" {% if n.image %}style="background-image:url('{{ image_url(n.image) }}')"{% endif %}>{% if not n.image %}{{ '🌮' if n.category == 'Comida' else '✏️' }}{% endif %}</div>
 <div class="admin-business-info"><div class="admin-title-row"><h3>{{ n.name }}</h3>{% if n.featured %}<span class="badge">★ Destacado</span>{% endif %}</div><p>{{ n.category }} · {{ n.product_count }} productos · ★ {{ "%.1f"|format(n.rating) }}</p>
 <div class="admin-actions"><a class="btn outline" href="{{ url_for('admin_products',business_id=n.id) }}">📦 Productos</a><a class="btn ghost" href="{{ url_for('admin_business_edit',business_id=n.id) }}">✏️ Editar</a><form method="post" action="{{ url_for('admin_business_featured',business_id=n.id) }}"><button class="btn ghost">{{ '☆ Quitar destacado' if n.featured else '★ Destacar' }}</button></form><form method="post" action="{{ url_for('admin_business_delete',business_id=n.id) }}" onsubmit="return confirm('¿Eliminar este negocio y sus productos?')"><button class="btn danger">🗑 Eliminar</button></form></div></div></article>
-{% else %}<p>No hay negocios.</p>{% endfor %}</div></section></main>
+{% else %}<p>No hay negocios.</p>{% endfor %}</div>
+<div id="adminNewOrderModal" class="admin-new-order-modal" hidden>
+  <div class="admin-new-order-backdrop"></div>
+  <div class="admin-new-order-card" role="dialog" aria-modal="true" aria-labelledby="adminNewOrderTitle">
+    <button type="button" class="admin-new-order-close" id="adminNewOrderClose" aria-label="Cerrar">×</button>
+    <div class="admin-new-order-icon">🔔</div>
+    <span class="eyebrow">NUEVO PEDIDO</span>
+    <h2 id="adminNewOrderTitle">¡Llegó un nuevo pedido!</h2>
+    <p id="adminNewOrderInfo">Revisa el pedido desde el panel.</p>
+    <div class="admin-new-order-total" id="adminNewOrderTotal">$0.00</div>
+    <div class="admin-new-order-actions">
+      <a id="adminNewOrderView" class="btn primary" href="#">Ver pedido</a>
+      <button type="button" class="btn outline" id="adminNewOrderDismiss">Ahora no</button>
+    </div>
+  </div>
+</div>
+
+<style>
+.admin-new-order-modal{position:fixed;inset:0;z-index:9999;display:grid;place-items:center;padding:20px}
+.admin-new-order-modal[hidden]{display:none}
+.admin-new-order-backdrop{position:absolute;inset:0;background:rgba(0,0,0,.55);backdrop-filter:blur(2px)}
+.admin-new-order-card{position:relative;width:min(440px,100%);background:#fff;border:1px solid var(--border);border-radius:22px;padding:28px;box-shadow:0 20px 60px rgba(0,0,0,.25);text-align:center}
+.admin-new-order-icon{font-size:46px;margin-bottom:8px}
+.admin-new-order-card h2{margin:8px 0;font-size:25px}
+.admin-new-order-card p{color:var(--muted);margin:0 0 12px}
+.admin-new-order-total{font-size:30px;font-weight:900;margin:14px 0;color:var(--green)}
+.admin-new-order-actions{display:flex;justify-content:center;gap:8px;flex-wrap:wrap}
+.admin-new-order-close{position:absolute;right:12px;top:10px;border:0;background:transparent;font-size:28px;cursor:pointer;color:var(--muted)}
+html.dark-mode .admin-new-order-card{background:#151a17;border-color:#303832;color:#fff}
+</style>
+
+<script>
+document.addEventListener("DOMContentLoaded", () => {
+  const endpoint = "{{ url_for('admin_new_orders_data') }}";
+  const modal = document.getElementById("adminNewOrderModal");
+  const closeBtn = document.getElementById("adminNewOrderClose");
+  const dismissBtn = document.getElementById("adminNewOrderDismiss");
+  const viewBtn = document.getElementById("adminNewOrderView");
+  const info = document.getElementById("adminNewOrderInfo");
+  const total = document.getElementById("adminNewOrderTotal");
+  const table = document.querySelector(".orders-table");
+  const newOrdersMetric = document.querySelector(".metrics .metric:nth-child(4) b");
+
+  let lastSeenOrderId = null;
+  let firstLoad = true;
+  let checking = false;
+
+  const esc = (value) => String(value ?? "").replace(/[&<>"']/g, ch => ({
+    "&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#039;"
+  }[ch]));
+
+  const money = value => "$" + Number(value || 0).toFixed(2);
+
+  let modalTimer = null;
+
+function showModal(order) {
+  info.textContent = `Pedido #${order.id} · ${order.customer_name} · ${order.business_name}`;
+  total.textContent = money(order.total);
+  viewBtn.href = `/admin/pedidos/${encodeURIComponent(order.id)}`;
+  modal.hidden = false;
+
+  // La ventana permanece visible durante 20 segundos.
+  if (modalTimer) {
+    clearTimeout(modalTimer);
+  }
+
+  modalTimer = setTimeout(() => {
+    closeModal();
+  }, 20000);
+
+  try {
+    const AudioCtx = window.AudioContext || window.webkitAudioContext;
+
+    if (AudioCtx) {
+      const ctx = new AudioCtx();
+      const osc = ctx.createOscillator();
+      const gain = ctx.createGain();
+
+      osc.frequency.value = 880;
+      gain.gain.value = 0.08;
+
+      osc.connect(gain);
+      gain.connect(ctx.destination);
+
+      osc.start();
+      osc.stop(ctx.currentTime + 0.18);
+    }
+  } catch (_) {}
+}
+
+function closeModal() {
+  modal.hidden = true;
+
+  if (modalTimer) {
+    clearTimeout(modalTimer);
+    modalTimer = null;
+  }
+}
+
+  closeBtn?.addEventListener("click", closeModal);
+  dismissBtn?.addEventListener("click", closeModal);
+  modal?.querySelector(".admin-new-order-backdrop")?.addEventListener("click", closeModal);
+
+  function refreshRecentOrders(recent) {
+    if (!table || !Array.isArray(recent)) return;
+
+    if (!recent.length) {
+      table.innerHTML = '<div class="empty-box">Todavía no hay pedidos.</div>';
+      return;
+    }
+
+    table.innerHTML = recent.map(p => `
+      <a class="order-row" href="/admin/pedidos/${encodeURIComponent(p.id)}">
+        <div class="order-number">#${esc(p.id)}</div>
+        <div><b>${esc(p.customer_name)}</b><small>${esc(p.business_name)}</small></div>
+        <div class="order-address">${esc(p.customer_phone)}</div>
+        <div class="order-total">${money(p.total)}</div>
+        <div class="order-status ${esc(p.status)}">${esc(p.status_label)}</div>
+        <div>›</div>
+      </a>
+    `).join("");
+  }
+
+  async function refreshAdmin() {
+    if (checking) return;
+    checking = true;
+
+    try {
+      const response = await fetch(endpoint, {
+        credentials: "same-origin",
+        cache: "no-store",
+        headers: {"X-Requested-With": "XMLHttpRequest"}
+      });
+
+      if (!response.ok) return;
+
+      const data = await response.json();
+      if (!data.ok) return;
+
+      if (newOrdersMetric) newOrdersMetric.textContent = data.count;
+      refreshRecentOrders(data.recent);
+
+      const latestId = data.latest_id == null ? null : Number(data.latest_id);
+
+      // Primera consulta: sincroniza sin mostrar una alerta por pedidos anteriores.
+      if (firstLoad) {
+        lastSeenOrderId = latestId;
+        firstLoad = false;
+        return;
+      }
+
+      // Un ID mayor significa que acaba de entrar un pedido nuevo.
+      if (latestId !== null && (lastSeenOrderId === null || latestId > lastSeenOrderId)) {
+        const newOrder = data.recent?.find(p => Number(p.id) === latestId);
+        if (newOrder) showModal(newOrder);
+        lastSeenOrderId = latestId;
+      }
+    } catch (error) {
+      console.warn("No fue posible actualizar los pedidos automáticamente:", error);
+    } finally {
+      checking = false;
+    }
+  }
+
+  // Actualiza al entrar al panel y cada 10 segundos.
+  refreshAdmin();
+  setInterval(refreshAdmin, 10000);
+});
+</script>
+
+</section></main>
 {% endblock %}

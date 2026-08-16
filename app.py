@@ -1435,6 +1435,46 @@ def admin_new_orders_count():
         total=total["c"],
         latest_id=latest["id"] if latest else None
     )
+@app.route("/admin/pedidos/nuevos-data")
+@auth
+def admin_new_orders_data():
+    c = db()
+
+    total_new = c.execute(
+        "SELECT COUNT(*) AS c FROM orders WHERE status='nuevo'"
+    ).fetchone()["c"]
+
+    latest = c.execute(
+        "SELECT id FROM orders WHERE status='nuevo' ORDER BY id DESC LIMIT 1"
+    ).fetchone()
+
+    recent = c.execute(
+        "SELECT o.id, o.customer_name, o.customer_phone, o.total, "
+        "o.status, b.name AS business_name "
+        "FROM orders o JOIN businesses b ON b.id=o.business_id "
+        "ORDER BY o.id DESC LIMIT 8"
+    ).fetchall()
+
+    c.close()
+
+    return jsonify(
+        ok=True,
+        count=total_new,
+        latest_id=latest["id"] if latest else None,
+        recent=[
+            {
+                "id": r["id"],
+                "customer_name": r["customer_name"],
+                "customer_phone": r["customer_phone"],
+                "total": float(r["total"] or 0),
+                "status": r["status"],
+                "status_label": STATUSES.get(r["status"], r["status"]),
+                "business_name": r["business_name"],
+            }
+            for r in recent
+        ]
+    )
+
 @app.route("/admin/pedidos/<int:order_id>")
 @auth
 def admin_order_detail(order_id):
