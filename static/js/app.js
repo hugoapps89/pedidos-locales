@@ -26,10 +26,6 @@ document.addEventListener("DOMContentLoaded", () => {
   const subtotalEl = document.getElementById("cartSubtotal");
   const checkoutSubtotal = document.getElementById("checkoutSubtotal");
   const checkoutBtn = document.getElementById("checkoutBtn");
-  const floatingCart = document.getElementById("floatingCart");
-  const floatingCartButton = document.getElementById("floatingCartButton");
-  const floatingCartCount = document.getElementById("floatingCartCount");
-  const floatingCartTotal = document.getElementById("floatingCartTotal");
 
   const money = n => "$" + Number(n).toFixed(2);
 
@@ -149,22 +145,6 @@ document.addEventListener("DOMContentLoaded", () => {
     const qty = cart.reduce((s,x)=>s+x.qty,0);
     countEls.forEach(el=>el.textContent=qty);
     const sub=subtotal(), com=commission(), total=grandTotal();
-    if (floatingCart) {
-    if (qty > 0) {
-        floatingCart.classList.remove("hidden");
-
-        if (floatingCartCount) {
-            floatingCartCount.textContent =
-                qty === 1 ? "1 producto" : `${qty} productos`;
-        }
-
-        if (floatingCartTotal) {
-            floatingCartTotal.textContent = money(total);
-        }
-    } else {
-        floatingCart.classList.add("hidden");
-    }
-}
 
     if(subtotalEl) subtotalEl.textContent=money(sub);
     const commissionEl=document.getElementById("commissionDisplay");
@@ -196,18 +176,6 @@ document.addEventListener("DOMContentLoaded", () => {
       renderCart();
     });
   });
-if (floatingCartButton) {
-    floatingCartButton.addEventListener("click", () => {
-        const panel = document.querySelector(".order-panel");
-
-        if (panel) {
-            panel.scrollIntoView({
-                behavior: "smooth",
-                block: "center"
-            });
-        }
-    });
-}
 
 if(itemsEl) itemsEl.addEventListener("click", e => {
     const b = e.target.closest("button[data-id]");
