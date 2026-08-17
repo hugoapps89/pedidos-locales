@@ -5,31 +5,7 @@
 <section class="hero"><div class="hero-copy">
 <span class="eyebrow">PEDIDOS LOCALES</span>
 <h1>Plataforma de pedidos<br><span>para negocios locales</span></h1><p>Descubre productos, arma tu pedido y contacta al negocio de forma fácil y rápida.</p>
-<div class="app-purpose">
-  <strong>Pedidos Locales</strong>
-  <b>Plataforma de pedidos para negocios locales</b>
 
-  <p>
-    <strong>¿Qué es Pedidos Locales?</strong>
-  </p>
-
-  <p>
-    Pedidos Locales es una plataforma que permite a los usuarios descubrir
-    negocios locales, consultar sus productos y precios, realizar pedidos
-    y consultar el estado de sus compras.
-  </p>
-
-  <p>
-    Los usuarios pueden iniciar sesión con Google para administrar su cuenta
-    y consultar sus pedidos. Pedidos Locales utiliza únicamente información
-    básica de Google necesaria para identificar la cuenta del usuario.
-  </p>
-
-  <div class="app-purpose-links">
-    <a href="{{ url_for('privacidad') }}">Política de Privacidad</a>
-    <a href="{{ url_for('terminos') }}">Condiciones del Servicio</a>
-  </div>
-</div>
 <div class="search"><input id="searchInput" type="search" placeholder="Buscar negocios o productos..."><button type="button">🔎</button></div>
 <div class="benefits"><div><span>🛒</span><b>Fácil y rápido</b><small>Pide en minutos</small></div><div><span>📍</span><b>Apoya lo local</b><small>Fortalece tu comunidad</small></div></div>
 </div><div class="hero-art"><div class="shop">🏪</div><div class="plant">🌿</div></div></section>
@@ -50,52 +26,3 @@
 </div></section>
 </main>
 {% endblock %}
-<style>
-.app-purpose{
-  margin:18px 0 0;
-  max-width:650px;
-  padding:16px 18px;
-  background:rgba(255,255,255,.82);
-  border:1px solid #dce9df;
-  border-radius:14px;
-}
-
-.app-purpose strong{
-  display:block;
-  font-size:1.15rem;
-  color:#14532d;
-  margin-bottom:4px;
-}
-
-.app-purpose > b{
-  display:block;
-  color:#26352b;
-  margin-bottom:8px;
-}
-
-.app-purpose p{
-  margin:0;
-  color:#526158;
-  line-height:1.55;
-}
-
-.app-purpose-links{
-  display:flex;
-  flex-wrap:wrap;
-  gap:10px;
-  margin-top:16px;
-  padding-top:14px;
-  border-top:1px solid #dce9df;
-}
-
-.app-purpose-links a{
-  color:#15803d;
-  font-weight:700;
-  text-decoration:underline;
-}
-
-.app-purpose-links a:hover{
-  text-decoration:none;
-}
-
-</style>
