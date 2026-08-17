@@ -26,6 +26,11 @@ document.addEventListener("DOMContentLoaded", () => {
   const subtotalEl = document.getElementById("cartSubtotal");
   const checkoutSubtotal = document.getElementById("checkoutSubtotal");
   const checkoutBtn = document.getElementById("checkoutBtn");
+  const floatingCart = document.getElementById("floatingCart");
+  const floatingCartButton = document.getElementById("floatingCartButton");
+  const floatingCartCount = document.getElementById("floatingCartCount");
+  const floatingCartTotal = document.getElementById("floatingCartTotal");
+
   const money = n => "$" + Number(n).toFixed(2);
 
   const config = window.NEGOCIO || {};
@@ -144,6 +149,23 @@ document.addEventListener("DOMContentLoaded", () => {
     const qty = cart.reduce((s,x)=>s+x.qty,0);
     countEls.forEach(el=>el.textContent=qty);
     const sub=subtotal(), com=commission(), total=grandTotal();
+    if (floatingCart) {
+    if (qty > 0) {
+        floatingCart.classList.remove("hidden");
+
+        if (floatingCartCount) {
+            floatingCartCount.textContent =
+                qty === 1 ? "1 producto" : `${qty} productos`;
+        }
+
+        if (floatingCartTotal) {
+            floatingCartTotal.textContent = money(total);
+        }
+    } else {
+        floatingCart.classList.add("hidden");
+    }
+}
+
     if(subtotalEl) subtotalEl.textContent=money(sub);
     const commissionEl=document.getElementById("commissionDisplay");
     if(commissionEl) commissionEl.textContent=money(com);
@@ -157,9 +179,13 @@ document.addEventListener("DOMContentLoaded", () => {
       <div class="cart-item">
         <div><b>${x.name}</b><small>${money(x.price)} · ${x.qty} pieza(s)</small></div>
         <div class="qty">
-          <button type="button" data-action="minus" data-id="${x.id}">−</button>
-          <button type="button" data-action="plus" data-id="${x.id}">+</button>
-        </div>
+  <button type="button" data-action="minus" data-id="${x.id}">−</button>
+  <span>${x.qty}</span>
+  <button type="button" data-action="plus" data-id="${x.id}">+</button>
+  <button type="button" class="cart-remove" data-action="remove" data-id="${x.id}">
+    🗑
+  </button>
+</div>
       </div>`).join("");
   }
 
@@ -170,14 +196,47 @@ document.addEventListener("DOMContentLoaded", () => {
       renderCart();
     });
   });
+if (floatingCartButton) {
+    floatingCartButton.addEventListener("click", () => {
+        const panel = document.querySelector(".order-panel");
 
-  if(itemsEl) itemsEl.addEventListener("click",e=>{
-    const b=e.target.closest("button[data-id]"); if(!b)return;
-    const x=cart.find(i=>i.id===Number(b.dataset.id)); if(!x)return;
-    x.qty += b.dataset.action==="plus" ? 1 : -1;
-    if(x.qty<=0) cart.splice(cart.indexOf(x),1);
+        if (panel) {
+            panel.scrollIntoView({
+                behavior: "smooth",
+                block: "center"
+            });
+        }
+    });
+}
+
+if(itemsEl) itemsEl.addEventListener("click", e => {
+    const b = e.target.closest("button[data-id]");
+    if (!b) return;
+
+    const id = Number(b.dataset.id);
+    const x = cart.find(i => i.id === id);
+    if (!x) return;
+
+    const action = b.dataset.action;
+
+    if (action === "plus") {
+        x.qty += 1;
+    }
+
+    if (action === "minus") {
+        x.qty -= 1;
+
+        if (x.qty <= 0) {
+            cart.splice(cart.indexOf(x), 1);
+        }
+    }
+
+    if (action === "remove") {
+        cart.splice(cart.indexOf(x), 1);
+    }
+
     renderCart();
-  });
+});
 
   const search=document.getElementById("searchInput"), result=document.getElementById("resultText");
   if(search) search.addEventListener("input",()=>{
