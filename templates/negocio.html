@@ -8,7 +8,153 @@
 </section>
 
 <section class="store-layout">
-<div><div class="section-title"><div><span class="line"></span><h2>Productos</h2></div></div>
+<div>
+{% if negocio.id == 8 %}
+
+<div class="quick-products-header">
+    <div class="section-title">
+        <div>
+            <span class="line"></span>
+            <h2>¿Qué necesitas?</h2>
+        </div>
+    </div>
+
+    <div class="quick-search">
+        <input
+            type="search"
+            id="quickProductSearch"
+            placeholder="Buscar productos..."
+            autocomplete="off"
+        >
+        <span>🔎</span>
+    </div>
+
+    <div class="quick-categories" id="quickCategories">
+
+    <button type="button" class="quick-category active" data-category="all">
+        🛍️ Todo
+    </button>
+
+    <button type="button" class="quick-category" data-category="Bebidas">
+        🥤 Bebidas
+    </button>
+
+    <button type="button" class="quick-category" data-category="Aguas">
+        💧 Aguas
+    </button>
+
+    <button type="button" class="quick-category" data-category="Botanas">
+        🍿 Botanas
+    </button>
+
+    <button type="button" class="quick-category" data-category="Dulces">
+        🍬 Dulces
+    </button>
+
+    <button type="button" class="quick-category" data-category="Galletas">
+        🍪 Galletas
+    </button>
+
+    <button type="button" class="quick-category" data-category="Panadería">
+        🍞 Panadería
+    </button>
+
+    <button type="button" class="quick-category" data-category="Helados">
+        🍦 Helados
+    </button>
+
+    <button type="button" class="quick-category" data-category="Cacahuates">
+        🥜 Cacahuates
+    </button>
+
+    <button type="button" class="quick-category" data-category="Hielo">
+        🧊 Hielo
+    </button>
+
+    <button type="button" class="quick-category" data-category="Higiene">
+        🧴 Higiene
+    </button>
+
+</div>
+
+<div class="products-grid" id="quickProductsGrid">
+
+{% for p in productos %}
+<article
+    class="product-card quick-product-card"
+    data-product-id="{{ p.id }}"
+    data-category="{{ p.category }}"
+    data-product-name="{{ p.name|lower }}"
+>
+
+{% if p.image %}
+<img
+    class="product-image real"
+    src="{{ image_url(p.image) }}"
+    alt="{{ p.name }}"
+>
+{% else %}
+<div class="product-image green">
+    📦
+</div>
+{% endif %}
+
+<button
+    type="button"
+    class="favorite-btn"
+    data-favorite-id="{{ p.id }}"
+    aria-label="Agregar {{ p.name }} a favoritos"
+    aria-pressed="false"
+>
+    ♡
+</button>
+
+<div class="product-body">
+
+    <span class="product-category">
+        {{ p.category }}
+    </span>
+
+    <h3>{{ p.name }}</h3>
+
+    <p>{{ p.description }}</p>
+
+    <div class="product-bottom">
+
+        <strong>
+            ${{ "%.2f"|format(p.price) }}
+        </strong>
+
+        <button
+            type="button"
+            class="btn outline add-product"
+            data-id="{{ p.id }}"
+            data-name="{{ p.name }}"
+            data-price="{{ p.price }}"
+        >
+            ＋ Agregar
+        </button>
+
+    </div>
+
+</div>
+
+</article>
+{% else %}
+<p>Este negocio todavía no tiene productos activos.</p>
+{% endfor %}
+
+</div>
+
+{% else %}
+
+<div class="section-title">
+    <div>
+        <span class="line"></span>
+        <h2>Productos</h2>
+    </div>
+</div>
+
 <div class="products-grid">
 {% for p in productos %}
 <article class="product-card" data-product-id="{{ p.id }}">
@@ -52,6 +198,7 @@
         </strong>
 
         <button
+            type="button"
             class="btn outline add-product"
             data-id="{{ p.id }}"
             data-name="{{ p.name }}"
@@ -68,6 +215,9 @@
 {% else %}
 <p>Este negocio todavía no tiene productos activos.</p>
 {% endfor %}
+</div>
+
+{% endif %}
 </div></div>
 
 <aside class="order-panel">
@@ -269,6 +419,55 @@ document.addEventListener("DOMContentLoaded", () => {
     });
 
     loadFavorites();
+});
+</script>
+<script>
+document.addEventListener("DOMContentLoaded", () => {
+    const searchInput = document.getElementById("quickProductSearch");
+    const categoryButtons = document.querySelectorAll(".quick-category");
+    const productCards = document.querySelectorAll(".quick-product-card");
+
+    if (!searchInput || !productCards.length) return;
+
+    let selectedCategory = "all";
+
+    function filterQuickProducts() {
+        const search = searchInput.value.trim().toLowerCase();
+
+        productCards.forEach(card => {
+            const category = (card.dataset.category || "").trim().toLowerCase();
+            const name = (card.dataset.productName || "").trim().toLowerCase();
+
+            const categoryMatches =
+                selectedCategory === "all" ||
+                category === selectedCategory.toLowerCase();
+
+            const searchMatches =
+                !search ||
+                name.includes(search);
+
+            card.style.display =
+                categoryMatches && searchMatches ? "" : "none";
+        });
+    }
+
+    categoryButtons.forEach(button => {
+        button.addEventListener("click", () => {
+            categoryButtons.forEach(btn => {
+                btn.classList.remove("active");
+            });
+
+            button.classList.add("active");
+
+            selectedCategory = button.dataset.category || "all";
+
+            filterQuickProducts();
+        });
+    });
+
+    searchInput.addEventListener("input", filterQuickProducts);
+
+    filterQuickProducts();
 });
 </script>
 

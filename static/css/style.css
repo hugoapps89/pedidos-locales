@@ -604,3 +604,181 @@ html.dark-mode .favorites-empty h3{
 html.dark-mode .favorites-empty p{
     color:#a8b4ab;
 }
+/* =========================================
+   PEDIDOS RÁPIDOS - CATEGORÍAS
+   ========================================= */
+
+.quick-products-header {
+    margin-bottom: 24px;
+}
+
+.quick-search {
+    position: relative;
+    margin: 16px 0;
+}
+
+.quick-search input {
+    width: 100%;
+    padding: 13px 46px 13px 16px;
+    border: 1px solid #d9e4dc;
+    border-radius: 14px;
+    background: #fff;
+    font-size: 15px;
+    outline: none;
+    transition: border-color .2s, box-shadow .2s;
+    box-sizing: border-box;
+}
+
+.quick-search input:focus {
+    border-color: #22a447;
+    box-shadow: 0 0 0 3px rgba(34, 164, 71, .12);
+}
+
+.quick-search span {
+    position: absolute;
+    right: 16px;
+    top: 50%;
+    transform: translateY(-50%);
+    pointer-events: none;
+}
+
+/* Barra de categorías */
+.quick-categories {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 10px;
+    width: 100%;
+    max-width: 100%;
+    margin-top: 8px;
+    padding: 4px 2px 6px;
+    box-sizing: border-box;
+}
+
+/* Ocultar barra de desplazamiento en WebKit */
+
+/* Botón de categoría */
+.quick-category {
+    flex: 0 0 auto;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-height: 42px;
+    padding: 9px 16px;
+    border: 1px solid #d9e4dc;
+    border-radius: 999px;
+    background: #fff;
+    color: #31503b;
+    font-size: 14px;
+    font-weight: 700;
+    line-height: 1;
+    white-space: nowrap;
+    cursor: pointer;
+    box-shadow: 0 2px 6px rgba(0, 0, 0, .04);
+    transition:
+        background .2s ease,
+        color .2s ease,
+        border-color .2s ease,
+        transform .15s ease,
+        box-shadow .2s ease;
+}
+
+.quick-category:hover {
+    border-color: #22a447;
+    color: #16843a;
+    transform: translateY(-1px);
+    box-shadow: 0 4px 10px rgba(0, 0, 0, .07);
+}
+
+.quick-category:active {
+    transform: scale(.97);
+}
+
+/* Categoría seleccionada */
+.quick-category.active {
+    background: #16843a;
+    border-color: #16843a;
+    color: #fff;
+    box-shadow: 0 4px 10px rgba(22, 132, 58, .22);
+}
+
+/* Enfoque accesible */
+.quick-category:focus-visible {
+    outline: 3px solid rgba(34, 164, 71, .25);
+    outline-offset: 2px;
+}
+
+/* Móviles */
+@media (max-width: 600px) {
+
+    .quick-categories {
+        gap: 8px;
+        margin-right: 0;
+        padding-bottom: 6px;
+    }
+
+    .quick-category {
+        min-height: 40px;
+        padding: 8px 13px;
+        font-size: 13px;
+    }
+}
+
+    .quick-category {
+        min-height: 40px;
+        padding: 8px 13px;
+        font-size: 13px;
+    }
+}
+/* Ajuste de ancho para Pedidos Rápidos */
+.store-layout {
+    min-width: 0;
+}
+
+.store-layout > div {
+    min-width: 0;
+}
+
+.quick-products-header,
+.quick-search,
+.quick-categories,
+#quickProductsGrid {
+    max-width: 100%;
+    min-width: 0;
+    box-sizing: border-box;
+}
+
+.quick-search input {
+    box-sizing: border-box;
+    max-width: 100%;
+}
+
+.quick-categories {
+    width: 100%;
+    max-width: 100%;
+}
+
+#quickProductsGrid {
+    width: 100%;
+    min-width: 0;
+}
+
+.quick-product-card {
+    min-width: 0;
+    max-width: 100%;
+}
+
+.quick-product-card .product-body {
+    min-width: 0;
+}
+
+.quick-product-card h3,
+.quick-product-card p {
+    overflow-wrap: anywhere;
+}
+
+/* Computadora: dejar espacio correcto entre catálogo y pedido */
+@media (min-width: 851px) {
+    .store-layout {
+        grid-template-columns: minmax(0, 1fr) 290px;
+    }
+}
