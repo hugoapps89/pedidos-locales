@@ -4,11 +4,25 @@
 <main>
 <section class="store-hero {% if negocio.image %}has-image{% else %}green{% endif %}" {% if negocio.image %}style="background-image:linear-gradient(90deg,rgba(0,0,0,.78),rgba(0,0,0,.2)),url('{{ image_url(negocio.image) }}')"{% endif %}>
 <div class="store-icon">{{ '🌮' if negocio.category == 'Comida' else '✏️' }}</div>
-<div><span class="eyebrow light">{{ negocio.category.upper() }}</span><h1>{{ negocio.name }}</h1>{% if 'tortill' in (negocio.name|lower) or 'tortill' in (negocio.category|lower) %}
-<div class="minimum-order-notice">
-    🛒 <strong>Compra mínima: $50.00 en productos</strong>
+
+<div>
+    <span class="eyebrow light">{{ negocio.category.upper() }}</span>
+    <h1>{{ negocio.name }}</h1>
+
+    <p>{{ negocio.description }}</p>
+
+    <div class="store-meta">
+        ★ {{ "%.1f"|format(negocio.rating) }} · ⏱ {{ negocio.delivery_time }} · {{ negocio.address or 'Mérida, Yucatán' }}
+    </div>
+
+    {% if 'tortill' in (negocio.name|lower) or 'tortill' in (negocio.category|lower) %}
+    <div class="minimum-order-notice">
+        🛒 Compra mínima: <strong>$50.00</strong> en productos
+    </div>
+    {% endif %}
 </div>
-{% endif %}<p>{{ negocio.description }}</p><div class="store-meta">★ {{ "%.1f"|format(negocio.rating) }} · ⏱ {{ negocio.delivery_time }} · {{ negocio.address or 'Mérida, Yucatán' }}</div></div>
+
+</div>
 </section>
 
 <section class="store-layout">
