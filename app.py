@@ -1041,7 +1041,6 @@ def crear_pedido():
 
     delivery_enabled=bool(business["delivery_enabled"])
     distance_km=0.0
-    distance_km=0.0
     if delivery_enabled:
         try:
             customer_lat=float(customer.get("latitude"))
