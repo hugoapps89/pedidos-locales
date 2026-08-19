@@ -227,7 +227,21 @@ def calculate_business_delivery_fee(business, distance_km):
             + additional_km * TORTILLERIA_EXTRA_PER_KM
         )
 
-    return calculate_delivery_fee(distance_km)
+    try:
+        business_base_fee = float(business["delivery_fee"])
+    except (TypeError, ValueError, KeyError):
+        business_base_fee = DELIVERY_BASE_FEE
+
+    business_base_fee = max(0.0, business_base_fee)
+
+    if distance_km <= DELIVERY_BASE_KM:
+        raw = business_base_fee
+    else:
+        raw = business_base_fee + (
+            (distance_km - DELIVERY_BASE_KM) * DELIVERY_EXTRA_PER_KM
+        )
+
+    return round_delivery_fee(raw)
 
 
 def haversine_km(lat1, lon1, lat2, lon2):

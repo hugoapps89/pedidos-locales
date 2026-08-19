@@ -33,9 +33,32 @@
 <label class="check"><input name="featured" type="checkbox" {% if negocio and negocio.featured %}checked{% endif %}> Mostrar como negocio destacado</label>
 <div class="form-section">
 <h3>🚚 Configuración de envío</h3>
-<p class="form-help">El envío se calcula automáticamente: hasta 5 km cuesta $35 y después aumenta $5 por cada km adicional.</p>
-<label class="check"><input id="delivery_enabled" name="delivery_enabled" type="checkbox" {% if not negocio or negocio.delivery_enabled %}checked{% endif %}> Ofrecer envío a domicilio</label>
-<label>Tarifa base (hasta 5 km) <input id="delivery_fee" name="delivery_fee" type="number" min="35" step="1" value="35" readonly></label>
+
+<p class="form-help">
+    Configura el costo de envío de este negocio. La tarifa indicada se aplicará hasta 5 km y después aumentará $5 por cada km adicional.
+</p>
+
+<label class="check">
+    <input id="delivery_enabled" name="delivery_enabled" type="checkbox"
+        {% if not negocio or negocio.delivery_enabled %}checked{% endif %}>
+    Ofrecer envío a domicilio
+</label>
+
+<label>
+    Tarifa base de envío (hasta 5 km)
+    <input
+        id="delivery_fee"
+        name="delivery_fee"
+        type="number"
+        min="0"
+        step="1"
+        value="{{ negocio.delivery_fee if negocio and negocio.delivery_fee is not none else 35 }}"
+    >
+</label>
+
+<p class="form-help">
+    Ejemplo: si configuras $30, hasta 5 km serán $30. Después de 5 km se sumarán $5 por cada km adicional.
+</p>
 </div>
 <div class="form-actions"><a class="btn ghost" href="{{ url_for('admin_dashboard') }}">Cancelar</a><button class="btn primary">Guardar negocio</button></div></form>
 <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />

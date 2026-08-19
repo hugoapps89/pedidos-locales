@@ -7,7 +7,21 @@
 <div class="orders-table">{% for p in recent_orders %}<a class="order-row" href="{{ url_for('admin_order_detail',order_id=p.id) }}"><div class="order-number">#{{ p.id }}</div><div><b>{{ p.customer_name }}</b><small>{{ p.business_name }}</small></div><div class="order-address">{{ p.customer_phone }}</div><div class="order-total">${{ "%.2f"|format(p.total) }}</div><div class="order-status {{ p.status }}">{{ statuses[p.status] }}</div><div>›</div></a>{% else %}<div class="empty-box">Todavía no hay pedidos.</div>{% endfor %}</div></section><section class="admin-section"><div class="section-title"><div><span class="line"></span><h2>Mis negocios</h2></div></div><div class="admin-business-list">
 {% for n in negocios %}<article class="admin-business"><div class="admin-business-img {% if n.image %}has-image{% endif %}" {% if n.image %}style="background-image:url('{{ image_url(n.image) }}')"{% endif %}>{% if not n.image %}{{ '🌮' if n.category == 'Comida' else '✏️' }}{% endif %}</div>
 <div class="admin-business-info"><div class="admin-title-row"><h3>{{ n.name }}</h3>{% if n.featured %}<span class="badge">★ Destacado</span>{% endif %}</div><p>{{ n.category }} · {{ n.product_count }} productos · ★ {{ "%.1f"|format(n.rating) }}</p>
-<div class="admin-actions"><a class="btn outline" href="{{ url_for('admin_products',business_id=n.id) }}">📦 Productos</a><a class="btn ghost" href="{{ url_for('admin_business_edit',business_id=n.id) }}">✏️ Editar</a><form method="post" action="{{ url_for('admin_business_featured',business_id=n.id) }}"><button class="btn ghost">{{ '☆ Quitar destacado' if n.featured else '★ Destacar' }}</button></form><form method="post" action="{{ url_for('admin_business_delete',business_id=n.id) }}" onsubmit="return confirm('¿Eliminar este negocio y sus productos?')"><button class="btn danger">🗑 Eliminar</button></form></div></div></article>
+<div class="admin-actions">
+    <a class="btn outline" href="{{ url_for('admin_products',business_id=n.id) }}">📦 Productos</a>
+    <a class="btn ghost" href="{{ url_for('admin_business_edit',business_id=n.id) }}">✏️ Editar</a>
+    <a class="btn ghost" href="{{ url_for('admin_business_edit',business_id=n.id) }}">⚙️ Configuración</a>
+
+    <form method="post" action="{{ url_for('admin_business_featured',business_id=n.id) }}">
+        <button class="btn ghost">{{ '☆ Quitar destacado' if n.featured else '★ Destacar' }}</button>
+    </form>
+
+    <form method="post" action="{{ url_for('admin_business_delete',business_id=n.id) }}" onsubmit="return confirm('¿Eliminar este negocio y sus productos?')">
+        <button class="btn danger">🗑 Eliminar</button>
+    </form>
+</div>
+</div>
+</article>
 {% else %}<p>No hay negocios.</p>{% endfor %}</div>
 <div id="adminNewOrderModal" class="admin-new-order-modal" hidden>
   <div class="admin-new-order-backdrop"></div>
