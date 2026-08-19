@@ -29,11 +29,21 @@ document.addEventListener("DOMContentLoaded", () => {
 
   const money = n => "$" + Number(n).toFixed(2);
 
-  const config = window.NEGOCIO || {};
-  const commissionRate = config.commissionEnabled ? Number(config.commissionRate || 0) : 0;
-  let deliveryFee = config.deliveryEnabled ? 35 : 0;
-  let deliveryDistanceKm = 0;
-  let customerLocation = null;
+const config = window.NEGOCIO || {};
+const commissionRate = config.commissionEnabled ? Number(config.commissionRate || 0) : 0;
+
+const isTortilleria =
+  Number(config.id) === 8 ||
+  String(config.name || "").toLowerCase().includes("tortill");
+
+const minimumOrder = isTortilleria ? 50 : 0;
+
+let deliveryFee = config.deliveryEnabled
+  ? (isTortilleria ? 15 : 35)
+  : 0;
+
+let deliveryDistanceKm = 0;
+let customerLocation = null;
 
   function subtotal() { return cart.reduce((s,x)=>s+x.price*x.qty,0); }
   function commission() { return subtotal() * commissionRate / 100; }
@@ -152,7 +162,11 @@ document.addEventListener("DOMContentLoaded", () => {
     const checkoutCommission=document.getElementById("checkoutCommission");
     if(checkoutCommission) checkoutCommission.textContent=money(com);
     if(totalEl) totalEl.textContent=money(total);
-    if(checkoutBtn) checkoutBtn.disabled=cart.length===0;
+    if(checkoutBtn) {
+  checkoutBtn.disabled =
+    cart.length === 0 ||
+    (minimumOrder > 0 && sub < minimumOrder);
+}
     if(!itemsEl) return;
     if(!cart.length){itemsEl.innerHTML='<p class="empty">Aún no agregas productos.</p>';return;}
     itemsEl.innerHTML=cart.map(x=>`

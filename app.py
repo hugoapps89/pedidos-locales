@@ -105,6 +105,11 @@ DELIVERY_BASE_KM=5.0
 DELIVERY_BASE_FEE=35.0
 DELIVERY_EXTRA_PER_KM=5.0
 DEFAULT_COMMISSION_RATE=15.00
+# Tarifa especial de la tortillería
+TORTILLERIA_BASE_KM=1.0
+TORTILLERIA_BASE_FEE=15.0
+TORTILLERIA_EXTRA_PER_KM=5.0
+TORTILLERIA_MIN_ORDER=50.0
 LOCAL_TZ=ZoneInfo("America/Merida")
 
 # PayU WebCheckout
@@ -182,11 +187,47 @@ def calculate_delivery_fee(distance_km):
         distance_km=max(0.0, float(distance_km))
     except (TypeError, ValueError):
         distance_km=0.0
+
     if distance_km <= DELIVERY_BASE_KM:
         raw=DELIVERY_BASE_FEE
     else:
         raw=DELIVERY_BASE_FEE + ((distance_km-DELIVERY_BASE_KM) * DELIVERY_EXTRA_PER_KM)
+
     return round_delivery_fee(raw)
+
+
+def is_tortilleria_business(business):
+    name = str(business["name"] or "").lower()
+    category = str(business["category"] or "").lower()
+
+    return "tortill" in name or "tortill" in category
+
+
+def calculate_business_delivery_fee(business, distance_km):
+    """
+    Tarifa especial para tortillería:
+    hasta 1 km = $15
+    después = +$5 por cada km adicional iniciado.
+    """
+    try:
+        distance_km = max(0.0, float(distance_km))
+    except (TypeError, ValueError):
+        distance_km = 0.0
+
+    if is_tortilleria_business(business):
+        if distance_km <= TORTILLERIA_BASE_KM:
+            return TORTILLERIA_BASE_FEE
+
+        additional_km = math.ceil(
+            distance_km - TORTILLERIA_BASE_KM
+        )
+
+        return (
+            TORTILLERIA_BASE_FEE
+            + additional_km * TORTILLERIA_EXTRA_PER_KM
+        )
+
+    return calculate_delivery_fee(distance_km)
 
 
 def haversine_km(lat1, lon1, lat2, lon2):
@@ -929,7 +970,7 @@ def cotizar_envio(business_id):
     if not (-90 <= lat <= 90 and -180 <= lon <= 180):
         return jsonify(ok=False,error="Ubicación del cliente inválida."),400
     c=db()
-    business=c.execute("SELECT id,delivery_enabled,latitude,longitude FROM businesses WHERE id=?",(business_id,)).fetchone()
+    business=c.execute("SELECT id,name,category,delivery_enabled,latitude,longitude FROM businesses WHERE id=?",(business_id,)).fetchone()
     c.close()
     if not business:
         return jsonify(ok=False,error="Negocio no encontrado."),404
@@ -951,7 +992,7 @@ def cotizar_envio(business_id):
         ok=True,
         delivery_enabled=True,
         distance_km=round(distance,2),
-        delivery_fee=calculate_delivery_fee(distance)
+        delivery_fee=calculate_business_delivery_fee(business, distance)
     )
 
 
@@ -987,8 +1028,19 @@ def crear_pedido():
         p=c.execute("SELECT id,name,price FROM products WHERE id=? AND business_id=? AND active=1",(pid,bid)).fetchone()
         if not p:continue
         sub=float(p["price"])*qty; total+=sub; clean.append((p["id"],p["name"],float(p["price"]),qty,sub))
-    if not clean:c.close();return jsonify(ok=False,error="No hay productos válidos."),400
+    if not clean:
+        c.close()
+        return jsonify(ok=False,error="No hay productos válidos."),400
+
+    if is_tortilleria_business(business) and total < TORTILLERIA_MIN_ORDER:
+        c.close()
+        return jsonify(
+            ok=False,
+            error="El pedido mínimo de esta tortillería es de $50.00 en productos."
+        ),400
+
     delivery_enabled=bool(business["delivery_enabled"])
+    distance_km=0.0
     distance_km=0.0
     if delivery_enabled:
         try:
@@ -1019,7 +1071,7 @@ def crear_pedido():
             c.close()
             return jsonify(ok=False,error=str(exc)),503
 
-        delivery_fee=calculate_delivery_fee(distance_km)
+        delivery_fee = calculate_business_delivery_fee(business, distance_km)
     else:
         delivery_fee=0.0
     commission_enabled, commission_rate=platform_commission(c)
