@@ -782,3 +782,13 @@ html.dark-mode .favorites-empty p{
         grid-template-columns: minmax(0, 1fr) 290px;
     }
 }
+.minimum-order-notice {
+    margin: 10px 0 16px;
+    padding: 10px 14px;
+    border-radius: 10px;
+    background: #fff8e1;
+    border: 1px solid #f0d98a;
+    color: #6b5200;
+    font-size: 14px;
+    text-align: center;
+}
