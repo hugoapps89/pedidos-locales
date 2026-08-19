@@ -295,7 +295,7 @@ window.NEGOCIO = {
   name: {{ negocio["name"]|tojson }},
   phone: {{ negocio["phone"]|tojson }},
   deliveryEnabled: {{ negocio["delivery_enabled"]|int|tojson }},
-  deliveryFee: 35,
+  deliveryFee: {{ (negocio["delivery_fee"] if negocio["delivery_fee"] is not none else 35)|float|tojson }},
   latitude: {{ (negocio["latitude"] if negocio["latitude"] is not none else none)|tojson }},
   longitude: {{ (negocio["longitude"] if negocio["longitude"] is not none else none)|tojson }},
   commissionEnabled: {{ commission_enabled|tojson }},

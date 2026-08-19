@@ -33,13 +33,13 @@ const config = window.NEGOCIO || {};
 const commissionRate = config.commissionEnabled ? Number(config.commissionRate || 0) : 0;
 
 const isTortilleria =
-  Number(config.id) === 8 ||
-  String(config.name || "").toLowerCase().includes("tortill");
+  String(config.name || "").toLowerCase().includes("tortill") ||
+  String(config.category || "").toLowerCase().includes("tortill");
 
 const minimumOrder = isTortilleria ? 50 : 0;
 
 let deliveryFee = config.deliveryEnabled
-  ? (isTortilleria ? 15 : 35)
+  ? Number(config.deliveryFee ?? 35)
   : 0;
 
 let deliveryDistanceKm = 0;
