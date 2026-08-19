@@ -5,7 +5,7 @@
 <style>
 .home-hero-copy{display:flex;flex-direction:column;align-items:center;padding:8px 0 4px}
 .home-hero-copy p{max-width:680px;margin:0 auto;color:#53605a;font-size:18px;line-height:1.55;font-weight:500}
-.home-hero-copy p::before{content:'ðŸ›ï¸';display:grid;place-items:center;width:42px;height:42px;margin:0 auto 12px;border-radius:50%;background:#e5f7e9;font-size:21px;box-shadow:0 5px 16px rgba(22,163,74,.10)}
+.home-hero-copy p::before{content:'🛍️';display:grid;place-items:center;width:42px;height:42px;margin:0 auto 12px;border-radius:50%;background:#e5f7e9;font-size:21px;box-shadow:0 5px 16px rgba(22,163,74,.10)}
 .home-hero-copy p::after{content:'';display:block;width:54px;height:5px;margin:15px auto 0;border-radius:10px;background:var(--green)}
 .home-search{display:flex;align-items:center;width:min(660px,100%);height:58px;margin:20px auto 0;padding:4px;border:1.5px solid #31b867;border-radius:18px;background:#fff;box-shadow:0 8px 24px rgba(22,163,74,.10)}
 .home-search:focus-within{box-shadow:0 0 0 4px rgba(22,163,74,.10),0 10px 28px rgba(22,163,74,.12)}
@@ -20,26 +20,26 @@
 @media(max-width:560px){.home-hero-copy{padding:2px 0 0}.home-hero-copy p{font-size:16px;line-height:1.5}.home-hero-copy p::before{width:38px;height:38px;font-size:19px;margin-bottom:10px}.home-hero-copy p::after{margin-top:12px}.home-search{height:54px;border-radius:16px;margin-top:16px}.home-search .search-icon{width:42px}.home-search input{font-size:15px}.home-search button{width:48px;height:46px;border-radius:12px}.home-search button svg{width:21px;height:21px}.home-featured-section{padding-top:22px}}
 </style>
 <section class="hero"><div class="hero-copy home-hero-copy">
-<p>Descubre productos, arma tu pedido y contacta al negocio de forma fÃ¡cil y rÃ¡pida.</p>
+<p>Descubre productos, arma tu pedido y contacta al negocio de forma fácil y rápida.</p>
 
 <div class="search home-search">
 <span class="search-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="11" cy="11" r="7"></circle><path d="m20 20-4-4"></path></svg></span>
 <input id="searchInput" type="search" placeholder="Buscar negocios o productos...">
 <button type="button" aria-label="Buscar"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><circle cx="11" cy="11" r="7"></circle><path d="m20 20-4-4"></path></svg></button>
 </div>
-</div><div class="hero-art"><div class="shop">ðŸª</div><div class="plant">ðŸŒ¿</div></div></section>
+</div><div class="hero-art"><div class="shop">🏪</div><div class="plant">🌿</div></div></section>
 
-{% if destacados %}<section id="destacados" class="section"><div class="section-title"><div><span class="line"></span><h2>â­ Negocios destacados</h2></div><span>Recomendados para ti</span></div><div class="business-grid" id="featuredGrid">{% for n in destacados %}<article class="business-card" data-search="{{ n.name }} {{ n.category }} {{ n.description }}"><div class="business-banner {% if n.image %}has-image{% else %}green{% endif %}" {% if n.image %}style="background-image:linear-gradient(90deg,rgba(0,0,0,.7),rgba(0,0,0,.1)),url('{{ image_url(n.image) }}')"{% endif %}>{% if not n.image %}<span class="business-logo">{{ 'ðŸŒ®' if n.category == 'Comida' else 'âœï¸' }}</span>{% endif %}<div><strong>{{ n.name.upper() }}</strong><small>{{ n.category }}</small></div></div><div class="business-info"><div class="featured-label">â˜… DESTACADO</div><h3>{{ n.name }}</h3><p>{{ n.category }} Â· {{ n.description }}</p><div class="card-bottom"><span class="rating">â˜… {{ "%.1f"|format(n.rating) }} Â· {{ n.product_count }} productos</span><a class="btn primary" href="{{ url_for('negocio',negocio_id=n.id) }}">Ver negocio</a></div></div></article>{% endfor %}</div></section>{% endif %}
+{% if destacados %}<section id="destacados" class="section"><div class="section-title"><div><span class="line"></span><h2>⭐ Negocios destacados</h2></div><span>Recomendados para ti</span></div><div class="business-grid" id="featuredGrid">{% for n in destacados %}<article class="business-card" data-search="{{ n.name }} {{ n.category }} {{ n.description }}"><div class="business-banner {% if n.image %}has-image{% else %}green{% endif %}" {% if n.image %}style="background-image:linear-gradient(90deg,rgba(0,0,0,.7),rgba(0,0,0,.1)),url('{{ image_url(n.image) }}')"{% endif %}>{% if not n.image %}<span class="business-logo">{{ '🌮' if n.category == 'Comida' else '✏️' }}</span>{% endif %}<div><strong>{{ n.name.upper() }}</strong><small>{{ n.category }}</small></div></div><div class="business-info"><div class="featured-label">★ DESTACADO</div><h3>{{ n.name }}</h3><p>{{ n.category }} · {{ n.description }}</p><div class="card-bottom"><span class="rating">★ {{ "%.1f"|format(n.rating) }} · {{ n.product_count }} productos</span><a class="btn primary" href="{{ url_for('negocio',negocio_id=n.id) }}">Ver negocio</a></div></div></article>{% endfor %}</div></section>{% endif %}
 
 <section id="negocios" class="section"><div class="section-title"><div><span class="line"></span><h2>Todos los negocios</h2></div><span id="resultText"></span></div>
 <div class="business-grid" id="businessGrid">
 {% for n in negocios %}
 <article class="business-card" data-search="{{ n.name }} {{ n.category }} {{ n.description }}">
 <div class="business-banner {% if n.image %}has-image{% else %}green{% endif %}" {% if n.image %}style="background-image:linear-gradient(90deg,rgba(0,0,0,.7),rgba(0,0,0,.1)),url('{{ image_url(n.image) }}')"{% endif %}>
-{% if not n.image %}<span class="business-logo">{{ 'ðŸŒ®' if n.category == 'Comida' else 'âœï¸' }}</span>{% endif %}
+{% if not n.image %}<span class="business-logo">{{ '🌮' if n.category == 'Comida' else '✏️' }}</span>{% endif %}
 <div><strong>{{ n.name.upper() }}</strong><small>{{ n.category }}</small></div></div>
-<div class="business-info"><div class="featured-label">{% if n.featured %}â˜… DESTACADO{% endif %}</div><h3>{{ n.name }}</h3><p>{{ n.category }} Â· {{ n.description }}</p>
-<div class="card-bottom"><span class="rating">â˜… {{ "%.1f"|format(n.rating) }} Â· {{ n.product_count }} productos</span><a class="btn primary" href="{{ url_for('negocio',negocio_id=n.id) }}">Ver negocio</a></div></div>
+<div class="business-info"><div class="featured-label">{% if n.featured %}★ DESTACADO{% endif %}</div><h3>{{ n.name }}</h3><p>{{ n.category }} · {{ n.description }}</p>
+<div class="card-bottom"><span class="rating">★ {{ "%.1f"|format(n.rating) }} · {{ n.product_count }} productos</span><a class="btn primary" href="{{ url_for('negocio',negocio_id=n.id) }}">Ver negocio</a></div></div>
 </article>
 {% else %}<p>No hay negocios registrados.</p>{% endfor %}
 </div></section>
