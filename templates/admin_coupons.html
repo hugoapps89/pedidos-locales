@@ -219,7 +219,7 @@
             method="post"
             action="{{ url_for('admin_coupon_create') }}"
         >
-
+<input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
 
             <div class="coupon-grid">
 
