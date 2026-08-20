@@ -280,13 +280,14 @@ function updateDeliveryUI() {
         formatDelivery(discountedDeliveryFee());
 }
 
-if (checkoutFeeEl) {
+  if (checkoutFeeEl) {
     checkoutFeeEl.textContent =
-        formatDelivery(discountedDeliveryFee());
+      formatDelivery(discountedDeliveryFee());
+  }
+
 }
 
-
-let customerLocationRequest = null;
+  let customerLocationRequest = null;
 
 
 function requestCustomerLocation(forceRefresh=false) {
@@ -540,43 +541,95 @@ if(itemsEl) itemsEl.addEventListener("click", e => {
     if(result)result.textContent=q?`${shown} resultado(s)`:"";
   });
 
-  const getCustomerLocationBtn=document.getElementById("getCustomerLocation");
-  const customerLocationStatus=document.getElementById("customerLocationStatus");
-  if(getCustomerLocationBtn){
-    getCustomerLocationBtn.addEventListener("click",async()=>{
-      if(getCustomerLocationBtn.dataset.loading==="1") return;
+    const getCustomerLocationBtn =
+    document.getElementById("getCustomerLocation");
 
-      getCustomerLocationBtn.dataset.loading="1";
-      getCustomerLocationBtn.disabled=true;
-      if(customerLocationStatus) customerLocationStatus.textContent=" Obteniendo ubicación…";
+  const customerLocationStatus =
+    document.getElementById("customerLocationStatus");
 
-      try{
-        await requestCustomerLocation();
-        await quoteDelivery();
+  if (getCustomerLocationBtn) {
 
-        const sub=subtotal(), com=commission();
-        if(checkoutSubtotal) checkoutSubtotal.textContent=money(sub);
-        const checkoutDeliveryFee=document.getElementById("checkoutDeliveryFee");
-        if(checkoutDeliveryFee) {
-    checkoutDeliveryFee.textContent =
-        money(discountedDeliveryFee());
-}
-        const checkoutCommission=document.getElementById("checkoutCommission");
-        if(checkoutCommission) checkoutCommission.textContent=money(com);
-        if(checkoutTotal) checkoutTotal.textContent=money(grandTotal());
-      }catch(ex){
-        if(customerLocationStatus) {
-          customerLocationStatus.textContent=" "+(ex.message||"No fue posible obtener tu ubicación.");
+    getCustomerLocationBtn.addEventListener(
+      "click",
+      async () => {
+
+        if (getCustomerLocationBtn.dataset.loading === "1") {
+          return;
         }
-        if(err) err.textContent=ex.message || "No se pudo calcular el envío.";
-      }finally{
-        getCustomerLocationBtn.dataset.loading="0";
-        getCustomerLocationBtn.disabled=false;
+
+        getCustomerLocationBtn.dataset.loading = "1";
+        getCustomerLocationBtn.disabled = true;
+
+        if (customerLocationStatus) {
+          customerLocationStatus.textContent =
+            " Obteniendo ubicación…";
+        }
+
+        try {
+
+          await requestCustomerLocation();
+          await quoteDelivery();
+
+          const sub = subtotal();
+          const com = commission();
+
+          if (checkoutSubtotal) {
+            checkoutSubtotal.textContent = money(sub);
+          }
+
+          const checkoutDeliveryFee =
+            document.getElementById("checkoutDeliveryFee");
+
+          if (checkoutDeliveryFee) {
+            checkoutDeliveryFee.textContent =
+              money(discountedDeliveryFee());
+          }
+
+          const checkoutCommission =
+            document.getElementById("checkoutCommission");
+
+          if (checkoutCommission) {
+            checkoutCommission.textContent =
+              money(com);
+          }
+
+          if (checkoutTotal) {
+            checkoutTotal.textContent =
+              money(grandTotal());
+          }
+
+        } catch (ex) {
+
+          if (customerLocationStatus) {
+            customerLocationStatus.textContent =
+              " " +
+              (ex.message ||
+               "No fue posible obtener tu ubicación.");
+          }
+
+          if (err) {
+            err.textContent =
+              ex.message ||
+              "No se pudo calcular el envío.";
+          }
+
+        } finally {
+
+          getCustomerLocationBtn.dataset.loading = "0";
+          getCustomerLocationBtn.disabled = false;
+
+        }
+
       }
-    });
+    );
+
   }
 
-  const modal=document.getElementById("checkoutModal"), close=document.getElementById("closeCheckout");
+  const modal =
+    document.getElementById("checkoutModal");
+
+  const close =
+    document.getElementById("closeCheckout");
   const form=document.getElementById("checkoutForm"), err=document.getElementById("checkoutError"), checkoutTotal=document.getElementById("checkoutTotal");
 
   if(checkoutBtn && modal && form){
