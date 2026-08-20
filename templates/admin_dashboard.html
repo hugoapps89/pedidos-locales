@@ -1,7 +1,18 @@
 {% extends "base.html" %}
 {% block title %}Administrador · Pedidos Locales{% endblock %}
 {% block content %}
-<main class="admin-main"><div class="admin-header"><div><span class="eyebrow">CONTROL DEL NEGOCIO</span><h1>Panel administrador</h1><p>Gestiona negocios, productos, pedidos y repartidores.</p></div><div class="admin-header-actions"><a class="btn outline" href="{{ url_for('admin_configuracion') }}">⚙️ Configuración</a><a class="btn outline" href="{{ url_for('admin_featured_order') }}">⭐ Ordenar destacados</a><a class="btn outline" href="{{ url_for('admin_couriers') }}">🛵 Repartidores</a><a class="btn primary" href="{{ url_for('admin_business_new') }}">➕ Nuevo negocio</a></div></div>
+<main class="admin-main"><div class="admin-header"><div><span class="eyebrow">CONTROL DEL NEGOCIO</span><h1>Panel administrador</h1><p>Gestiona negocios, productos, pedidos y repartidores.</p></div><div class="admin-header-actions">
+<a class="btn outline" href="{{ url_for('admin_configuracion') }}">⚙️ Configuración</a>
+<a class="btn outline" href="{{ url_for('admin_featured_order') }}">⭐ Ordenar destacados</a>
+<a class="btn outline" href="{{ url_for('admin_couriers') }}">🛵 Repartidores</a>
+<a
+    class="btn outline"
+    href="{{ url_for('admin_coupons') }}"
+>
+    🎟️ Cupones
+</a>
+<a class="btn primary" href="{{ url_for('admin_business_new') }}">➕ Nuevo negocio</a>
+</div></div>
 <div class="metrics"><div class="metric"><span>🏪</span><b>{{ totals.businesses }}</b><small>Negocios</small></div><div class="metric"><span>📦</span><b>{{ totals.products }}</b><small>Productos</small></div><div class="metric"><span>🛒</span><b>{{ totals.orders }}</b><small>Pedidos</small></div><div class="metric"><span>🆕</span><b>{{ totals.new_orders }}</b><small>Pedidos nuevos</small></div><div class="metric"><span>🛵</span><b>{{ totals.couriers }}</b><small>Repartidores activos</small></div></div>
 <section class="admin-section" style="margin-bottom:22px"><div class="section-title"><div><span class="line"></span><h2>Pedidos recientes</h2></div><a class="btn outline" href="{{ url_for('admin_orders') }}">Ver todos</a></div>
 <div class="orders-table">{% for p in recent_orders %}<a class="order-row" href="{{ url_for('admin_order_detail',order_id=p.id) }}"><div class="order-number">#{{ p.id }}</div><div><b>{{ p.customer_name }}</b><small>{{ p.business_name }}</small></div><div class="order-address">{{ p.customer_phone }}</div><div class="order-total">${{ "%.2f"|format(p.total) }}</div><div class="order-status {{ p.status }}">{{ statuses[p.status] }}</div><div>›</div></a>{% else %}<div class="empty-box">Todavía no hay pedidos.</div>{% endfor %}</div></section><section class="admin-section"><div class="section-title"><div><span class="line"></span><h2>Mis negocios</h2></div></div><div class="admin-business-list">

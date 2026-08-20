@@ -20,13 +20,22 @@ document.addEventListener("DOMContentLoaded", () => {
     document.addEventListener("keydown",e=>{if(e.key==="Escape")closeMenu();});
   }
   const cart = [];
+let appliedCoupon = null;
+let couponDiscount = 0;
   const countEls = [document.getElementById("cartCount"), document.getElementById("cartBadge")].filter(Boolean);
   const itemsEl = document.getElementById("cartItems");
   const totalEl = document.getElementById("cartTotal");
   const subtotalEl = document.getElementById("cartSubtotal");
   const checkoutSubtotal = document.getElementById("checkoutSubtotal");
   const checkoutBtn = document.getElementById("checkoutBtn");
+const couponCodeInput =
+  document.getElementById("couponCode");
 
+const applyCouponBtn =
+  document.getElementById("applyCouponBtn");
+
+const couponMessage =
+  document.getElementById("couponMessage");
   const money = n => "$" + Number(n).toFixed(2);
 
 const config = window.NEGOCIO || {};
@@ -45,84 +54,347 @@ let deliveryFee = config.deliveryEnabled
 let deliveryDistanceKm = 0;
 let customerLocation = null;
 
-  function subtotal() { return cart.reduce((s,x)=>s+x.price*x.qty,0); }
-  function commission() { return subtotal() * commissionRate / 100; }
-  function grandTotal() { return subtotal() + deliveryFee + commission(); }
-  const formatDelivery = n => "$" + Number(n || 0).toFixed(0);
+function subtotal() {
+    return cart.reduce(
+        (s, x) => s + x.price * x.qty,
+        0
+    );
+}
 
-  function updateDeliveryUI() {
-    const d = config.deliveryEnabled ? (deliveryDistanceKm ? `${deliveryDistanceKm.toFixed(1)} km` : "calculando…") : "";
-    const row = document.getElementById("deliveryDistanceDisplay");
-    const checkoutD = document.getElementById("checkoutDeliveryDistance");
-    if(row) row.textContent = d ? `· ${d}` : "";
-    if(checkoutD) checkoutD.textContent = d ? `· ${d}` : "";
-    const feeEl = document.getElementById("deliveryFeeDisplay");
-    const checkoutFeeEl = document.getElementById("checkoutDeliveryFee");
-    if(feeEl) feeEl.textContent = formatDelivery(deliveryFee);
-    if(checkoutFeeEl) checkoutFeeEl.textContent = formatDelivery(deliveryFee);
-  }
+function discountedSubtotal() {
+    return Math.max(
+        0,
+        subtotal() - couponDiscount
+    );
+}
 
-  let customerLocationRequest = null;
+function commission() {
+    return discountedSubtotal() * commissionRate / 100;
+}
 
-  function requestCustomerLocation(forceRefresh=false) {
-    return new Promise((resolve, reject) => {
-      if(!config.deliveryEnabled) { resolve(null); return; }
+function grandTotal() {
+    return (
+        discountedSubtotal() +
+        deliveryFee +
+        commission()
+    );
+}
 
-      if(customerLocation && !forceRefresh) {
-        resolve(customerLocation);
+
+/* ================================
+   CUPÓN
+   ================================ */
+
+async function applyCoupon() {
+
+    if (!couponCodeInput || !applyCouponBtn) return;
+
+    const code =
+        couponCodeInput.value.trim().toUpperCase();
+
+    if (!code) {
+        if (couponMessage) {
+            couponMessage.textContent =
+                "Escribe un código de cupón.";
+            couponMessage.className =
+                "coupon-message error";
+        }
         return;
-      }
+    }
 
-      if(customerLocationRequest) {
-        customerLocationRequest.then(resolve).catch(reject);
+    if (!cart.length) {
+        if (couponMessage) {
+            couponMessage.textContent =
+                "Agrega productos antes de aplicar un cupón.";
+            couponMessage.className =
+                "coupon-message error";
+        }
         return;
-      }
+    }
 
-      if(!navigator.geolocation) {
-        reject(new Error("Tu navegador no permite obtener la ubicación."));
-        return;
-      }
+    applyCouponBtn.disabled = true;
+    applyCouponBtn.textContent = "Validando...";
 
-      const status=document.getElementById("customerLocationStatus");
-      if(status) status.textContent=" Obteniendo ubicación…";
+    try {
 
-      customerLocationRequest = new Promise((resolveRequest, rejectRequest) => {
-        let finished=false;
+        const url =
+            `/api/cupon/validar` +
+            `?code=${encodeURIComponent(code)}` +
+            `&business_id=${encodeURIComponent(window.NEGOCIO.id)}` +
+            `&subtotal=${encodeURIComponent(subtotal())}`;
 
-        const finish=(callback, value)=>{
-          if(finished) return;
-          finished=true;
-          callback(value);
+        const response = await fetch(url, {
+            credentials: "same-origin",
+            cache: "no-store"
+        });
+
+        const data = await response.json();
+
+        if (!response.ok || !data.ok) {
+            throw new Error(
+                data.error ||
+                "No fue posible aplicar el cupón."
+            );
+        }
+
+        appliedCoupon = {
+            id: data.coupon_id,
+            code: data.code,
+            discount: Number(data.discount || 0)
         };
 
-        const timeoutId=setTimeout(()=>{
-          finish(rejectRequest, new Error("La ubicación tardó demasiado. Inténtalo nuevamente."));
-        }, 12000);
+        couponDiscount =
+            Number(data.discount || 0);
 
-        navigator.geolocation.getCurrentPosition(
-          pos => {
-            clearTimeout(timeoutId);
-            customerLocation = {
-              latitude: pos.coords.latitude,
-              longitude: pos.coords.longitude
-            };
-            if(status) status.textContent=" ✓ Ubicación obtenida correctamente.";
-            finish(resolveRequest, customerLocation);
-          },
-          err => {
-            clearTimeout(timeoutId);
-            const messages={
-              1:"Permiso de ubicación denegado. Actívalo en el navegador.",
-              2:"No fue posible obtener tu ubicación.",
-              3:"La ubicación tardó demasiado. Inténtalo nuevamente."
-            };
-            const message=messages[err.code] || "No fue posible obtener tu ubicación.";
-            if(status) status.textContent=" "+message;
-            finish(rejectRequest, new Error(message));
-          },
-          {enableHighAccuracy:true, timeout:10000, maximumAge:60000}
+        couponCodeInput.value =
+            data.code;
+
+        if (couponMessage) {
+            couponMessage.textContent =
+                data.message;
+
+            couponMessage.className =
+                "coupon-message success";
+        }
+
+        renderCart();
+
+    } catch (error) {
+
+        appliedCoupon = null;
+        couponDiscount = 0;
+
+        if (couponMessage) {
+            couponMessage.textContent =
+                error.message ||
+                "No fue posible aplicar el cupón.";
+
+            couponMessage.className =
+                "coupon-message error";
+        }
+
+        renderCart();
+
+    } finally {
+
+        applyCouponBtn.disabled = false;
+        applyCouponBtn.textContent = "Aplicar";
+    }
+}
+
+
+/* ================================
+   BOTÓN APLICAR CUPÓN
+   ================================ */
+
+if (applyCouponBtn) {
+    applyCouponBtn.addEventListener(
+        "click",
+        applyCoupon
+    );
+}
+
+if (couponCodeInput) {
+    couponCodeInput.addEventListener(
+        "keydown",
+        event => {
+            if (event.key === "Enter") {
+                event.preventDefault();
+                applyCoupon();
+            }
+        }
+    );
+}
+
+
+const formatDelivery = n =>
+    "$" + Number(n || 0).toFixed(0);
+
+
+function updateDeliveryUI() {
+
+    const d = config.deliveryEnabled
+        ? (
+            deliveryDistanceKm
+                ? `${deliveryDistanceKm.toFixed(1)} km`
+                : "calculando…"
+        )
+        : "";
+
+    const row =
+        document.getElementById("deliveryDistanceDisplay");
+
+    const checkoutD =
+        document.getElementById(
+            "checkoutDeliveryDistance"
         );
-      });
+
+    if (row) {
+        row.textContent =
+            d ? `· ${d}` : "";
+    }
+
+    if (checkoutD) {
+        checkoutD.textContent =
+            d ? `· ${d}` : "";
+    }
+
+    const feeEl =
+        document.getElementById(
+            "deliveryFeeDisplay"
+        );
+
+    const checkoutFeeEl =
+        document.getElementById(
+            "checkoutDeliveryFee"
+        );
+
+    if (feeEl) {
+        feeEl.textContent =
+            formatDelivery(deliveryFee);
+    }
+
+    if (checkoutFeeEl) {
+        checkoutFeeEl.textContent =
+            formatDelivery(deliveryFee);
+    }
+}
+
+
+let customerLocationRequest = null;
+
+
+function requestCustomerLocation(forceRefresh=false) {
+
+    return new Promise((resolve, reject) => {
+
+        if (!config.deliveryEnabled) {
+            resolve(null);
+            return;
+        }
+
+        if (customerLocation && !forceRefresh) {
+            resolve(customerLocation);
+            return;
+        }
+
+        if (customerLocationRequest) {
+            customerLocationRequest
+                .then(resolve)
+                .catch(reject);
+            return;
+        }
+
+        if (!navigator.geolocation) {
+            reject(
+                new Error(
+                    "Tu navegador no permite obtener la ubicación."
+                )
+            );
+            return;
+        }
+
+        const status =
+            document.getElementById(
+                "customerLocationStatus"
+            );
+
+        if (status) {
+            status.textContent =
+                " Obteniendo ubicación…";
+        }
+
+        customerLocationRequest =
+            new Promise(
+                (resolveRequest, rejectRequest) => {
+
+                    let finished = false;
+
+                    const finish =
+                        (callback, value) => {
+
+                            if (finished) return;
+
+                            finished = true;
+
+                            callback(value);
+                        };
+
+                    const timeoutId =
+                        setTimeout(() => {
+
+                            finish(
+                                rejectRequest,
+                                new Error(
+                                    "La ubicación tardó demasiado. Inténtalo nuevamente."
+                                )
+                            );
+
+                        }, 12000);
+
+                    navigator.geolocation.getCurrentPosition(
+
+                        pos => {
+
+                            clearTimeout(timeoutId);
+
+                            customerLocation = {
+                                latitude:
+                                    pos.coords.latitude,
+
+                                longitude:
+                                    pos.coords.longitude
+                            };
+
+                            if (status) {
+                                status.textContent =
+                                    " ✓ Ubicación obtenida correctamente.";
+                            }
+
+                            finish(
+                                resolveRequest,
+                                customerLocation
+                            );
+                        },
+
+                        err => {
+
+                            clearTimeout(timeoutId);
+
+                            const messages = {
+                                1:
+                                    "Permiso de ubicación denegado. Actívalo en el navegador.",
+
+                                2:
+                                    "No fue posible obtener tu ubicación.",
+
+                                3:
+                                    "La ubicación tardó demasiado. Inténtalo nuevamente."
+                            };
+
+                            const message =
+                                messages[err.code] ||
+                                "No fue posible obtener tu ubicación.";
+
+                            if (status) {
+                                status.textContent =
+                                    " " + message;
+                            }
+
+                            finish(
+                                rejectRequest,
+                                new Error(message)
+                            );
+                        },
+
+                        {
+                            enableHighAccuracy: true,
+                            timeout: 10000,
+                            maximumAge: 60000
+                        }
+                    );
+                }
+            );
 
       customerLocationRequest.then(
         value => { customerLocationRequest=null; resolve(value); },
@@ -155,7 +427,20 @@ let customerLocation = null;
     const qty = cart.reduce((s,x)=>s+x.qty,0);
     countEls.forEach(el=>el.textContent=qty);
     const sub=subtotal(), com=commission(), total=grandTotal();
+const discountRow =
+  document.getElementById("couponDiscountRow");
 
+const discountDisplay =
+  document.getElementById("couponDiscountDisplay");
+
+if(discountDisplay) {
+  discountDisplay.textContent =
+    "-" + money(couponDiscount);
+}
+
+if(discountRow) {
+  discountRow.hidden = !appliedCoupon;
+}
     if(subtotalEl) subtotalEl.textContent=money(sub);
     const commissionEl=document.getElementById("commissionDisplay");
     if(commissionEl) commissionEl.textContent=money(com);

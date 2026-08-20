@@ -242,9 +242,78 @@
 <div class="order-head"><h2>Tu pedido</h2><span id="cartBadge">0</span></div>
 <div id="cartItems" class="cart-items"><p class="empty">Aún no agregas productos.</p></div>
 <div class="price-breakdown">
-<div><span>Productos</span><b id="cartSubtotal">$0.00</b></div>
-{% if negocio.delivery_enabled %}<div id="deliveryRow"><span>Entrega</span><b id="deliveryFeeDisplay">${{ "%.2f"|format(negocio.delivery_fee or 0) }}</b></div>{% endif %}
-{% if commission_enabled %}<div><span>Comisión de plataforma</span><b id="commissionDisplay">$0.00</b></div>{% endif %}
+
+    <div>
+        <span>Productos</span>
+        <b id="cartSubtotal">$0.00</b>
+    </div>
+
+<!-- CUPÓN -->
+<div class="coupon-cart-box">
+
+    <div class="coupon-cart-header">
+
+        <div class="coupon-cart-icon">
+            🎟️
+        </div>
+
+        <div class="coupon-cart-text">
+            <strong>¿Tienes un cupón?</strong>
+            <span>Obtén un descuento en tu pedido</span>
+        </div>
+
+    </div>
+
+        <div class="coupon-cart-input">
+
+            <input
+                type="text"
+                id="couponCode"
+                placeholder="Código de cupón"
+                maxlength="40"
+                autocomplete="off"
+            >
+
+            <button
+                type="button"
+                id="applyCouponBtn"
+                class="btn outline"
+            >
+                Aplicar
+            </button>
+
+        </div>
+
+        <div
+            id="couponMessage"
+            class="coupon-message"
+            aria-live="polite"
+        ></div>
+
+    </div>
+
+    <!-- DESCUENTO -->
+    <div id="couponDiscountRow" hidden>
+        <span>Descuento</span>
+        <b id="couponDiscountDisplay">$0.00</b>
+    </div>
+
+    {% if negocio.delivery_enabled %}
+    <div id="deliveryRow">
+        <span>Entrega</span>
+        <b id="deliveryFeeDisplay">
+            ${{ "%.2f"|format(negocio.delivery_fee or 0) }}
+        </b>
+    </div>
+    {% endif %}
+
+    {% if commission_enabled %}
+    <div>
+        <span>Comisión de plataforma</span>
+        <b id="commissionDisplay">$0.00</b>
+    </div>
+    {% endif %}
+
 </div>
 <div class="total-row"><span>Total</span><strong id="cartTotal">$0.00</strong></div>
 <button id="checkoutBtn" class="btn whatsapp" disabled>🛒 Continuar pedido</button>

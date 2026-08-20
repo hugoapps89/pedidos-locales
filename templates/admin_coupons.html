@@ -1,0 +1,715 @@
+{% extends "base.html" %}
+
+{% block title %}Cupones · Pedidos Locales{% endblock %}
+
+{% block content %}
+
+<main class="admin-main">
+
+    <div class="admin-header">
+
+        <div>
+            <span class="eyebrow">PROMOCIONES</span>
+
+            <h1>🎟️ Cupones</h1>
+
+            <p>
+                Administra códigos de descuento para tus clientes.
+            </p>
+        </div>
+
+        <div class="admin-header-actions">
+
+            <a
+                class="btn outline"
+                href="{{ url_for('admin_dashboard') }}"
+            >
+                ← Regresar
+            </a>
+
+            <button
+                class="btn primary"
+                type="button"
+                onclick="openCouponForm()"
+            >
+                ➕ Nuevo cupón
+            </button>
+
+        </div>
+
+    </div>
+
+
+    <section class="admin-section">
+
+        <div class="section-title">
+
+            <div>
+                <span class="line"></span>
+
+                <h2>
+                    Cupones registrados
+                </h2>
+            </div>
+
+        </div>
+
+
+        {% if coupons %}
+
+        <div class="orders-table">
+
+            {% for coupon in coupons %}
+
+            <div class="order-row coupon-row">
+
+                <div>
+
+                    <strong>
+                        {{ coupon.code }}
+                    </strong>
+
+                    <small>
+
+                        {% if coupon.discount_type == 'percent' %}
+
+                            {{ coupon.discount_value }}% de descuento
+
+                        {% else %}
+
+                            ${{ "%.2f"|format(coupon.discount_value) }}
+                            de descuento
+
+                        {% endif %}
+
+                    </small>
+
+                </div>
+
+
+                <div>
+
+                    <small>
+                        Negocio
+                    </small>
+
+                    <b>
+
+                        {{ coupon.business_name or "Todos los negocios" }}
+
+                    </b>
+
+                </div>
+
+
+                <div>
+
+                    <small>
+                        Compra mínima
+                    </small>
+
+                    <b>
+
+                        ${{ "%.2f"|format(coupon.minimum_purchase or 0) }}
+
+                    </b>
+
+                </div>
+
+
+                <div>
+
+                    <small>
+                        Usos
+                    </small>
+
+                    <b>
+
+                        {{ coupon.used_count }}
+
+                        {% if coupon.max_uses %}
+
+                            / {{ coupon.max_uses }}
+
+                        {% endif %}
+
+                    </b>
+
+                </div>
+
+
+                <div>
+
+                    {% if coupon.active %}
+
+                        <span class="badge coupon-active">
+                            Activo
+                        </span>
+
+                    {% else %}
+
+                        <span class="badge coupon-inactive">
+                            Inactivo
+                        </span>
+
+                    {% endif %}
+
+                </div>
+
+            </div>
+
+            {% endfor %}
+
+        </div>
+
+
+        {% else %}
+
+        <div class="empty-box">
+
+            Todavía no has creado ningún cupón.
+
+        </div>
+
+        {% endif %}
+
+    </section>
+
+</main>
+
+
+
+<!-- MODAL NUEVO CUPÓN -->
+
+<div
+    id="couponModal"
+    class="coupon-modal"
+    hidden
+>
+
+    <div
+        class="coupon-backdrop"
+        onclick="closeCouponForm()"
+    ></div>
+
+
+    <div class="coupon-card">
+
+        <button
+            type="button"
+            class="coupon-close"
+            onclick="closeCouponForm()"
+            aria-label="Cerrar"
+        >
+            ×
+        </button>
+
+
+        <span class="eyebrow">
+            NUEVA PROMOCIÓN
+        </span>
+
+
+        <h2>
+            Crear cupón
+        </h2>
+
+
+        <form
+            method="post"
+            action="{{ url_for('admin_coupon_create') }}"
+        >
+
+
+            <div class="coupon-grid">
+
+
+                <!-- CÓDIGO -->
+
+                <label>
+
+                    Código
+
+                    <input
+                        type="text"
+                        name="code"
+                        placeholder="LAVAFACIL10"
+                        required
+                        maxlength="40"
+                        autocomplete="off"
+                    >
+
+                </label>
+
+
+                <!-- TIPO -->
+
+                <label>
+
+                    Tipo de descuento
+
+                    <select
+                        name="discount_type"
+                        id="discountType"
+                    >
+
+                        <option value="percent">
+                            Porcentaje
+                        </option>
+
+                        <option value="fixed">
+                            Cantidad fija
+                        </option>
+
+                    </select>
+
+                </label>
+
+
+                <!-- VALOR -->
+
+                <label>
+
+                    Valor
+
+                    <input
+                        type="number"
+                        name="discount_value"
+                        min="0.01"
+                        step="0.01"
+                        placeholder="10"
+                        required
+                    >
+
+                </label>
+
+
+                <!-- NEGOCIO -->
+
+                <label>
+
+                    Negocio
+
+                    <select name="business_id">
+
+                        <option value="">
+                            Todos los negocios
+                        </option>
+
+                        {% for business in businesses %}
+
+                        <option value="{{ business.id }}">
+                            {{ business.name }}
+                        </option>
+
+                        {% endfor %}
+
+                    </select>
+
+                </label>
+
+
+                <!-- COMPRA MÍNIMA -->
+
+                <label>
+
+                    Compra mínima
+
+                    <input
+                        type="number"
+                        name="minimum_purchase"
+                        min="0"
+                        step="0.01"
+                        value="0"
+                    >
+
+                </label>
+
+
+                <!-- MÁXIMO DE USOS -->
+
+                <label>
+
+                    Número máximo de usos
+
+                    <input
+                        type="number"
+                        name="max_uses"
+                        min="1"
+                        placeholder="Sin límite"
+                    >
+
+                </label>
+
+
+                <!-- FECHA INICIO -->
+
+                <label>
+
+                    Fecha de inicio
+
+                    <input
+                        type="date"
+                        name="start_date"
+                        required
+                    >
+
+                </label>
+
+
+                <!-- FECHA FIN -->
+
+                <label>
+
+                    Fecha de vencimiento
+
+                    <input
+                        type="date"
+                        name="end_date"
+                        required
+                    >
+
+                </label>
+
+
+            </div>
+
+
+            <!-- UNA VEZ POR CLIENTE -->
+
+            <label class="coupon-checkbox">
+
+                <input
+                    type="checkbox"
+                    name="one_per_customer"
+                    value="1"
+                >
+
+                <span>
+                    Utilizable una sola vez por cliente
+                </span>
+
+            </label>
+
+
+            <div class="coupon-form-actions">
+
+                <button
+                    type="button"
+                    class="btn outline"
+                    onclick="closeCouponForm()"
+                >
+                    Cancelar
+                </button>
+
+
+                <button
+                    type="submit"
+                    class="btn primary"
+                >
+                    🎟️ Crear cupón
+                </button>
+
+            </div>
+
+
+        </form>
+
+    </div>
+
+</div>
+
+
+
+<style>
+
+.coupon-modal{
+
+    position:fixed;
+
+    inset:0;
+
+    z-index:9999;
+
+    display:grid;
+
+    place-items:center;
+
+    padding:20px;
+
+}
+
+
+.coupon-modal[hidden]{
+
+    display:none;
+
+}
+
+
+.coupon-backdrop{
+
+    position:absolute;
+
+    inset:0;
+
+    background:rgba(0,0,0,.55);
+
+    backdrop-filter:blur(3px);
+
+}
+
+
+.coupon-card{
+
+    position:relative;
+
+    width:min(720px,100%);
+
+    max-height:90vh;
+
+    overflow:auto;
+
+    background:#fff;
+
+    border:1px solid var(--border);
+
+    border-radius:22px;
+
+    padding:30px;
+
+    box-shadow:
+        0 25px 70px rgba(0,0,0,.28);
+
+}
+
+
+.coupon-card h2{
+
+    margin:8px 0 22px;
+
+}
+
+
+.coupon-close{
+
+    position:absolute;
+
+    right:14px;
+
+    top:10px;
+
+    border:0;
+
+    background:transparent;
+
+    font-size:30px;
+
+    cursor:pointer;
+
+    color:var(--muted);
+
+}
+
+
+.coupon-grid{
+
+    display:grid;
+
+    grid-template-columns:
+        1fr 1fr;
+
+    gap:16px;
+
+}
+
+
+.coupon-grid label{
+
+    display:flex;
+
+    flex-direction:column;
+
+    gap:7px;
+
+    font-weight:700;
+
+}
+
+
+.coupon-grid input,
+.coupon-grid select{
+
+    width:100%;
+
+    box-sizing:border-box;
+
+}
+
+
+.coupon-checkbox{
+
+    display:flex;
+
+    align-items:center;
+
+    gap:10px;
+
+    margin-top:20px;
+
+    font-weight:700;
+
+}
+
+
+.coupon-checkbox input{
+
+    width:18px;
+
+    height:18px;
+
+}
+
+
+.coupon-form-actions{
+
+    display:flex;
+
+    justify-content:flex-end;
+
+    gap:10px;
+
+    margin-top:25px;
+
+}
+
+
+.coupon-active{
+
+    background:#dcfce7;
+
+    color:#166534;
+
+}
+
+
+.coupon-inactive{
+
+    background:#fee2e2;
+
+    color:#991b1b;
+
+}
+
+
+.coupon-row{
+
+    cursor:default;
+
+}
+
+
+@media(max-width:700px){
+
+    .coupon-grid{
+
+        grid-template-columns:1fr;
+
+    }
+
+
+    .coupon-card{
+
+        padding:22px;
+
+    }
+
+}
+
+
+html.dark-mode .coupon-card{
+
+    background:#151a17;
+
+    color:#fff;
+
+}
+
+</style>
+
+
+
+<script>
+
+function openCouponForm(){
+
+    const modal =
+        document.getElementById("couponModal");
+
+
+    modal.hidden = false;
+
+
+    const start =
+        modal.querySelector(
+            '[name="start_date"]'
+        );
+
+
+    const end =
+        modal.querySelector(
+            '[name="end_date"]'
+        );
+
+
+    if(start && !start.value){
+
+        const today =
+            new Date();
+
+
+        const iso =
+            today
+                .toISOString()
+                .split("T")[0];
+
+
+        start.value =
+            iso;
+
+    }
+
+
+    if(end && !end.value){
+
+        const today =
+            new Date();
+
+
+        today.setDate(
+            today.getDate() + 30
+        );
+
+
+        end.value =
+            today
+                .toISOString()
+                .split("T")[0];
+
+    }
+
+}
+
+
+function closeCouponForm(){
+
+    document.getElementById(
+        "couponModal"
+    ).hidden = true;
+
+}
+
+</script>
+
+
+{% endblock %}
