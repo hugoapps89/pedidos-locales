@@ -77,13 +77,18 @@ function discountedSubtotal() {
 
 function discountedDeliveryFee() {
 
-    if (couponTarget !== "delivery") {
+    if (couponTarget !== "delivery" || !appliedCoupon) {
         return deliveryFee;
     }
 
+    const deliveryDiscount =
+        couponDiscount > 0
+            ? couponDiscount
+            : deliveryFee;
+
     return Math.max(
         0,
-        deliveryFee - couponDiscount
+        deliveryFee - deliveryDiscount
     );
 
 }
