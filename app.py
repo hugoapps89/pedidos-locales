@@ -1235,11 +1235,13 @@ def crear_pedido():
         # Máximo de usos
         max_uses = coupon["max_uses"]
 
-        used_count = c.execute("""
-            SELECT COUNT(*)
-            FROM coupon_uses
-            WHERE coupon_id=?
-        """, (coupon["id"],)).fetchone()[0]
+        used_row = c.execute("""
+    SELECT COUNT(*) AS used_count
+    FROM coupon_uses
+    WHERE coupon_id=?
+""", (coupon["id"],)).fetchone()
+
+used_count = int(used_row["used_count"] or 0)
 
         if (
             max_uses is not None
@@ -2101,11 +2103,13 @@ def validar_cupon():
     # Máximo de usos
     max_uses = coupon["max_uses"]
 
-    used_count = c.execute("""
-        SELECT COUNT(*)
-        FROM coupon_uses
-        WHERE coupon_id=?
-    """, (coupon["id"],)).fetchone()[0]
+    used_row = c.execute("""
+    SELECT COUNT(*) AS used_count
+    FROM coupon_uses
+    WHERE coupon_id=?
+""", (coupon["id"],)).fetchone()
+
+used_count = int(used_row["used_count"] or 0)
 
     if max_uses is not None and used_count >= int(max_uses):
         c.close()
