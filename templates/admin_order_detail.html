@@ -3,14 +3,78 @@
 {% block content %}
 <main class="admin-main narrow">
 <a class="back-link" href="{{ url_for('admin_orders') }}">← Todos los pedidos</a>
-<div class="order-detail-head"><div><span class="eyebrow">PEDIDO #{{ pedido.id }}</span><h1>{{ pedido.business_name }}</h1><p>{{ pedido.customer_name }} · {{ pedido.customer_phone }} · 🕐 {{ pedido.created_at }}</p></div><span class="order-status big {{ pedido.status }}">{{ statuses[pedido.status] }}</span></div>
+
+<div class="order-detail-head">
+    <div>
+        <span class="eyebrow">PEDIDO #{{ pedido.id }}</span>
+        <h1>{{ pedido.business_name }}</h1>
+        <p>{{ pedido.customer_name }} · {{ pedido.customer_phone }} · 🕐 {{ pedido.created_at }}</p>
+    </div>
+    <span class="order-status big {{ pedido.status }}">{{ statuses[pedido.status] }}</span>
+</div>
+
 <div class="order-detail-grid">
-<section class="detail-card"><h2>Productos</h2>{% for i in items %}<div class="detail-item"><div><b>{{ i.quantity }} × {{ i.product_name }}</b><small>${{ "%.2f"|format(i.price) }} c/u</small></div><strong>${{ "%.2f"|format(i.subtotal) }}</strong></div>{% endfor %}<div class="detail-total"><span>Productos</span><strong>${{ "%.2f"|format(pedido.subtotal if pedido.subtotal is not none else pedido.total) }}</strong></div>
-<div class="detail-total"><span>Entrega</span><strong>${{ "%.2f"|format(pedido.delivery_fee if pedido.delivery_fee is not none else 0) }}</strong></div>
-<div class="detail-total"><span>Comisión ({{ "%.2f"|format(pedido.commission_rate if pedido.commission_rate is not none else 0) }}%)</span><strong>${{ "%.2f"|format(pedido.commission_amount if pedido.commission_amount is not none else 0) }}</strong></div>
-<div class="detail-total grand"><span>Total</span><strong>${{ "%.2f"|format(pedido.total) }}</strong></div></section>
-<section class="detail-card"><h2>Cliente y entrega</h2><div class="customer-data"><span>Cliente</span><b>{{ pedido.customer_name }}</b><span>Teléfono</span><b>{{ pedido.customer_phone }}</b><span>Dirección</span><b>{{ pedido.customer_address }}</b><span>Pago</span>
-<b>{{ pedido.payment_method }}</b>
+
+<section class="detail-card">
+    <h2>Productos</h2>
+
+    {% for i in items %}
+    <div class="detail-item">
+        <div>
+            <b>{{ i.quantity }} × {{ i.product_name }}</b>
+            <small>${{ "%.2f"|format(i.price) }} c/u</small>
+        </div>
+        <strong>${{ "%.2f"|format(i.subtotal) }}</strong>
+    </div>
+    {% endfor %}
+
+    <div class="detail-total">
+        <span>Productos</span>
+        <strong>${{ "%.2f"|format(pedido.subtotal if pedido.subtotal is not none else pedido.total) }}</strong>
+    </div>
+
+    {% if pedido.coupon_discount and pedido.coupon_discount > 0 %}
+    <div class="detail-total">
+        <span>
+            Cupón{% if pedido.coupon_code %} ({{ pedido.coupon_code }}){% endif %}
+        </span>
+        <strong>-${{ "%.2f"|format(pedido.coupon_discount) }}</strong>
+    </div>
+    {% endif %}
+
+    <div class="detail-total">
+        <span>Entrega</span>
+        <strong>${{ "%.2f"|format(pedido.delivery_fee if pedido.delivery_fee is not none else 0) }}</strong>
+    </div>
+
+    <div class="detail-total">
+        <span>
+            Comisión ({{ "%.2f"|format(pedido.commission_rate if pedido.commission_rate is not none else 0) }}%)
+        </span>
+        <strong>${{ "%.2f"|format(pedido.commission_amount if pedido.commission_amount is not none else 0) }}</strong>
+    </div>
+
+    <div class="detail-total grand">
+        <span>Total</span>
+        <strong>${{ "%.2f"|format(pedido.total) }}</strong>
+    </div>
+</section>
+
+<section class="detail-card">
+    <h2>Cliente y entrega</h2>
+
+    <div class="customer-data">
+        <span>Cliente</span>
+        <b>{{ pedido.customer_name }}</b>
+
+        <span>Teléfono</span>
+        <b>{{ pedido.customer_phone }}</b>
+
+        <span>Dirección</span>
+        <b>{{ pedido.customer_address }}</b>
+
+        <span>Pago</span>
+        <b>{{ pedido.payment_method }}</b>
 
 <span>Estado del pago</span>
 
