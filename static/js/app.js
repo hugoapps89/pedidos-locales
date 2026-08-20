@@ -581,10 +581,28 @@ if(itemsEl) itemsEl.addEventListener("click", e => {
       e.preventDefault(); err.textContent="";
       const fd=new FormData(form);
       const payload={
-        business_id:window.NEGOCIO.id,
-        customer:{name:fd.get("name"),phone:fd.get("phone"),email:fd.get("email"),address:fd.get("address"),payment_method:fd.get("payment_method"),notes:fd.get("notes"),latitude:customerLocation?.latitude,longitude:customerLocation?.longitude},
-        items:cart.map(x=>({id:x.id,qty:x.qty}))
-      };
+  business_id:window.NEGOCIO.id,
+
+  customer:{
+    name:fd.get("name"),
+    phone:fd.get("phone"),
+    email:fd.get("email"),
+    address:fd.get("address"),
+    payment_method:fd.get("payment_method"),
+    notes:fd.get("notes"),
+    latitude:customerLocation?.latitude,
+    longitude:customerLocation?.longitude
+  },
+
+  items:cart.map(x=>({
+    id:x.id,
+    qty:x.qty
+  })),
+
+  coupon_id: appliedCoupon ? appliedCoupon.id : null,
+  coupon_code: appliedCoupon ? appliedCoupon.code : null
+};
+
       try{
         await quoteDelivery();
         const csrfToken=document.querySelector('meta[name="csrf-token"]')?.getAttribute("content");
