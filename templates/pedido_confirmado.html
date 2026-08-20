@@ -22,10 +22,36 @@
 
 <div class="confirm-details">
 <div><span>Negocio</span><b>{{ pedido.business_name }}</b></div>
-<div><span>Subtotal productos</span><b>${{ "%.2f"|format(pedido.subtotal if pedido.subtotal is not none else pedido.total) }}</b></div>
-<div><span>Entrega</span><b>${{ "%.2f"|format(pedido.delivery_fee if pedido.delivery_fee is not none else 0) }}</b></div>
-<div><span>Comisión de plataforma</span><b>${{ "%.2f"|format(pedido.commission_amount if pedido.commission_amount is not none else 0) }}</b></div>
-<div><span>Total</span><b>${{ "%.2f"|format(pedido.total) }}</b></div>
+
+<div>
+    <span>Subtotal productos</span>
+    <b>${{ "%.2f"|format(pedido.subtotal if pedido.subtotal is not none else pedido.total) }}</b>
+</div>
+
+{% if pedido.coupon_discount and pedido.coupon_discount > 0 %}
+<div>
+    <span>
+        Cupón{% if pedido.coupon_code %} ({{ pedido.coupon_code }}){% endif %}
+    </span>
+    <b>-${{ "%.2f"|format(pedido.coupon_discount) }}</b>
+</div>
+{% endif %}
+
+<div>
+    <span>Entrega</span>
+    <b>${{ "%.2f"|format(pedido.delivery_fee if pedido.delivery_fee is not none else 0) }}</b>
+</div>
+
+<div>
+    <span>Comisión de plataforma</span>
+    <b>${{ "%.2f"|format(pedido.commission_amount if pedido.commission_amount is not none else 0) }}</b>
+</div>
+
+<div>
+    <span>Total</span>
+    <b>${{ "%.2f"|format(pedido.total) }}</b>
+</div>
+
 <div><span>Cliente</span><b>{{ pedido.customer_name }}</b></div>
 <div><span>Forma de pago</span><b>{{ pedido.payment_method }}</b></div>
 {% if pedido.payment_method == "Tarjeta (PayU)" %}
