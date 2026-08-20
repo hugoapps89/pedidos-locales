@@ -1232,16 +1232,16 @@ def crear_pedido():
                 )
             ), 400
 
-        # Máximo de usos
+                # Máximo de usos
         max_uses = coupon["max_uses"]
 
         used_row = c.execute("""
-    SELECT COUNT(*) AS used_count
-    FROM coupon_uses
-    WHERE coupon_id=?
-""", (coupon["id"],)).fetchone()
+            SELECT COUNT(*) AS used_count
+            FROM coupon_uses
+            WHERE coupon_id=?
+        """, (coupon["id"],)).fetchone()
 
-used_count = int(used_row["used_count"] or 0)
+        used_count = int(used_row["used_count"] or 0)
 
         if (
             max_uses is not None
@@ -1250,7 +1250,7 @@ used_count = int(used_row["used_count"] or 0)
             c.close()
             return jsonify(
                 ok=False,
-                error="Este cupón ya alcanzó su límite de usos."
+                error="Este cupón ya alcanzó el número máximo de usos."
             ), 400
 
         # Una sola vez por cliente
@@ -2100,22 +2100,22 @@ def validar_cupon():
             error=f"La compra mínima para este cupón es de ${minimum_purchase:.2f}."
         ), 400
 
-    # Máximo de usos
+        # Máximo de usos
     max_uses = coupon["max_uses"]
 
     used_row = c.execute("""
-    SELECT COUNT(*) AS used_count
-    FROM coupon_uses
-    WHERE coupon_id=?
-""", (coupon["id"],)).fetchone()
+        SELECT COUNT(*) AS used_count
+        FROM coupon_uses
+        WHERE coupon_id=?
+    """, (coupon["id"],)).fetchone()
 
-used_count = int(used_row["used_count"] or 0)
+    used_count = int(used_row["used_count"] or 0)
 
     if max_uses is not None and used_count >= int(max_uses):
         c.close()
         return jsonify(
             ok=False,
-            error="Este cupón ya alcanzó su límite de usos."
+            error="Este cupón ya alcanzó el número máximo de usos."
         ), 400
 
     # Calcular descuento
