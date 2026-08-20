@@ -474,9 +474,7 @@ function requestCustomerLocation(forceRefresh=false) {
 if (couponTarget === "delivery") {
 
     visibleCouponDiscount = Math.min(
-        couponDiscount > 0
-            ? couponDiscount
-            : deliveryFee,
+        couponDiscount,
         deliveryFee
     );
 
@@ -496,7 +494,6 @@ if (couponTarget === "delivery") {
         discountLabel.textContent =
             "Descuento";
     }
-
 }
 
 if (discountDisplay) {
