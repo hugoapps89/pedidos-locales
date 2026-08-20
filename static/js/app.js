@@ -20,9 +20,8 @@ document.addEventListener("DOMContentLoaded", () => {
     document.addEventListener("keydown",e=>{if(e.key==="Escape")closeMenu();});
   }
   const cart = [];
-        appliedCoupon = null;
-        couponDiscount = 0;
-        couponTarget = "products";
+let appliedCoupon = null;
+let couponDiscount = 0;
 let couponTarget = "products";
   const countEls = [document.getElementById("cartCount"), document.getElementById("cartBadge")].filter(Boolean);
   const itemsEl = document.getElementById("cartItems");
