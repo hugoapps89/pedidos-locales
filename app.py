@@ -412,6 +412,28 @@ def init_db():
             UNIQUE(coupon_id, customer_key)
         );
         """)
+        # ---------------- DESTINO DEL DESCUENTO DEL CUPÓN ----------------
+
+    if c.postgres:
+        c.execute("""
+            ALTER TABLE coupons
+            ADD COLUMN IF NOT EXISTS discount_target
+            TEXT NOT NULL DEFAULT 'products'
+        """)
+    else:
+        coupon_columns = {
+            row["name"]
+            for row in c.execute(
+                "PRAGMA table_info(coupons)"
+            ).fetchall()
+        }
+
+        if "discount_target" not in coupon_columns:
+            c.execute("""
+                ALTER TABLE coupons
+                ADD COLUMN discount_target
+                TEXT NOT NULL DEFAULT 'products'
+            """)
     if c.postgres:
         c.executescript("""
         CREATE TABLE IF NOT EXISTS businesses(
@@ -1166,6 +1188,7 @@ def crear_pedido():
     coupon_id = None
     coupon_code = None
     coupon_discount = 0.0
+    coupon_target = "products"
 
     requested_coupon = str(
         data.get("coupon_code", "")
@@ -1289,61 +1312,107 @@ def crear_pedido():
             coupon["discount_value"] or 0
         )
 
-        if discount_type == "percent":
-            coupon_discount = (
-                total * discount_value / 100
-            )
+        # Tipo de promoción:
+        # products = descuento sobre productos
+        # delivery = descuento sobre entrega
+        coupon_target = str(
+            coupon["discount_target"] or "products"
+        ).strip().lower()
+
+        if coupon_target == "delivery":
+            # Se calculará cuando conozcamos el costo real del envío.
+            coupon_discount = 0.0
+
         else:
-            coupon_discount = discount_value
+            # Descuento sobre productos
+            if discount_type == "percent":
+                coupon_discount = (
+                    total * discount_value / 100
+                )
+            else:
+                coupon_discount = discount_value
 
-        # Nunca permitir descuento mayor al subtotal
-        coupon_discount = min(
-            coupon_discount,
-            total
-        )
+            # Nunca permitir que el descuento supere el subtotal
+            coupon_discount = min(
+                coupon_discount,
+                total
+            )
 
-        coupon_discount = round(
-            coupon_discount,
-            2
-        )
+            coupon_discount = round(
+                coupon_discount,
+                2
+            )
 
         coupon_id = int(coupon["id"])
         coupon_code = str(coupon["code"])
 
-    # Subtotal después del cupón
-    discounted_total = round(
-        total - coupon_discount,
-        2
-    )
+        # ---------------- CALCULAR ENVÍO ----------------
+
     if is_tortilleria_business(business) and total < TORTILLERIA_MIN_ORDER:
         c.close()
         return jsonify(
             ok=False,
             error="El pedido mínimo de esta tortillería es de $50.00 en productos."
-        ),400
+        ), 400
 
-    delivery_enabled=bool(business["delivery_enabled"])
-    distance_km=0.0
+    delivery_enabled = bool(
+        business["delivery_enabled"]
+    )
+
+    distance_km = 0.0
+
     if delivery_enabled:
         try:
-            customer_lat=float(customer.get("latitude"))
-            customer_lon=float(customer.get("longitude"))
-        except (TypeError,ValueError):
+            customer_lat = float(
+                customer.get("latitude")
+            )
+            customer_lon = float(
+                customer.get("longitude")
+            )
+        except (TypeError, ValueError):
             c.close()
-            return jsonify(ok=False,error="Necesitamos tu ubicación para calcular el costo de envío."),400
-        if not (-90 <= customer_lat <= 90 and -180 <= customer_lon <= 180):
+            return jsonify(
+                ok=False,
+                error="Necesitamos tu ubicación para calcular el costo de envío."
+            ), 400
+
+        if not (
+            -90 <= customer_lat <= 90
+            and
+            -180 <= customer_lon <= 180
+        ):
             c.close()
-            return jsonify(ok=False,error="La ubicación de entrega no es válida."),400
+            return jsonify(
+                ok=False,
+                error="La ubicación de entrega no es válida."
+            ), 400
+
         try:
-            business_lat=float(business["latitude"]) if business["latitude"] is not None else None
-            business_lon=float(business["longitude"]) if business["longitude"] is not None else None
-        except (TypeError,ValueError):
-            business_lat=business_lon=None
-        if business_lat is None or business_lon is None:
+            business_lat = (
+                float(business["latitude"])
+                if business["latitude"] is not None
+                else None
+            )
+            business_lon = (
+                float(business["longitude"])
+                if business["longitude"] is not None
+                else None
+            )
+        except (TypeError, ValueError):
+            business_lat = business_lon = None
+
+        if (
+            business_lat is None
+            or business_lon is None
+        ):
             c.close()
-            return jsonify(ok=False,error="Este negocio aún no tiene configurada su ubicación para calcular el envío."),409
+            return jsonify(
+                ok=False,
+                error="Este negocio aún no tiene configurada su ubicación para calcular el envío."
+            ), 409
+
         try:
-            distance_km=route_distance_km(
+            distance_km = route_distance_km(
                 customer_lat,
                 customer_lon,
                 business_lat,
@@ -1351,20 +1420,82 @@ def crear_pedido():
             )
         except RuntimeError as exc:
             c.close()
-            return jsonify(ok=False,error=str(exc)),503
+            return jsonify(
+                ok=False,
+                error=str(exc)
+            ), 503
 
-        delivery_fee = calculate_business_delivery_fee(business, distance_km)
+        delivery_fee = calculate_business_delivery_fee(
+            business,
+            distance_km
+        )
+
     else:
-        delivery_fee=0.0
-    commission_enabled, commission_rate=platform_commission(c)
-       # ---------------- TOTAL FINAL CON CUPÓN ----------------
+        delivery_fee = 0.0
 
-    # La comisión se calcula sobre el subtotal después del descuento.
+        # ---------------- APLICAR CUPÓN ----------------
+
+    if coupon_target == "delivery" and coupon_id is not None:
+
+        # Calcular el descuento sobre el costo real de entrega
+        if discount_type == "percent":
+            delivery_coupon_discount = (
+                delivery_fee * discount_value / 100
+            )
+        else:
+            delivery_coupon_discount = discount_value
+
+        # Nunca permitir que el descuento supere el envío
+        delivery_coupon_discount = min(
+            delivery_coupon_discount,
+            delivery_fee
+        )
+
+        delivery_coupon_discount = round(
+            delivery_coupon_discount,
+            2
+        )
+
+        delivery_fee = round(
+            delivery_fee - delivery_coupon_discount,
+            2
+        )
+
+        discounted_total = round(
+            total,
+            2
+        )
+
+        coupon_discount = delivery_coupon_discount
+
+    else:
+
+        discounted_total = round(
+            total - coupon_discount,
+            2
+        )
+
+        delivery_fee = round(
+            delivery_fee,
+            2
+        )
+
+    # ---------------- COMISIÓN ----------------
+
+    commission_enabled, commission_rate = platform_commission(c)
+
     commission_amount = (
-        round(discounted_total * commission_rate / 100, 2)
+        round(
+            discounted_total *
+            commission_rate /
+            100,
+            2
+        )
         if commission_enabled
         else 0.0
     )
+
+    # ---------------- TOTAL FINAL ----------------
 
     grand_total = round(
         discounted_total +
@@ -1897,6 +2028,18 @@ def admin_coupon_create():
         "percent"
     )
 
+    discount_target = request.form.get(
+        "discount_target",
+        "products"
+    ).strip().lower()
+
+    if discount_target not in {"products", "delivery"}:
+        flash(
+            "Destino del descuento inválido.",
+            "error"
+        )
+        return redirect(url_for("admin_coupons"))
+
     try:
         discount_value = float(
             request.form.get("discount_value", "0")
@@ -1971,6 +2114,7 @@ def admin_coupon_create():
                 code,
                 discount_type,
                 discount_value,
+                discount_target,
                 business_id,
                 minimum_purchase,
                 start_date,
@@ -1979,11 +2123,12 @@ def admin_coupon_create():
                 one_per_customer,
                 active
             )
-            VALUES(?,?,?,?,?,?,?,?,?,1)
+            VALUES(?,?,?,?,?,?,?,?,?,?,1)
         """, (
             code,
             discount_type,
             discount_value,
+            discount_target,
             business_id,
             minimum_purchase,
             start_date,
@@ -2123,19 +2268,34 @@ def validar_cupon():
     discount_type = str(coupon["discount_type"])
     discount_value = float(coupon["discount_value"] or 0)
 
-    if discount_type == "percent":
-        discount = subtotal * discount_value / 100
+    # Tipo de promoción:
+    # products = descuento sobre productos
+    # delivery = descuento sobre entrega
+    discount_target = str(
+        coupon["discount_target"] or "products"
+    ).strip().lower()
+
+    if discount_target == "delivery":
+        # El descuento de entrega se calculará
+        # cuando conozcamos el costo real del envío.
+        discount = 0.0
+        discounted_subtotal = subtotal
+
     else:
-        discount = discount_value
+        # Descuento sobre productos
+        if discount_type == "percent":
+            discount = subtotal * discount_value / 100
+        else:
+            discount = discount_value
 
-    # Nunca permitir que el descuento supere el subtotal
-    discount = min(discount, subtotal)
-    discount = round(discount, 2)
+        # Nunca permitir que el descuento supere el subtotal
+        discount = min(discount, subtotal)
+        discount = round(discount, 2)
 
-    discounted_subtotal = round(
-        subtotal - discount,
-        2
-    )
+        discounted_subtotal = round(
+            subtotal - discount,
+            2
+        )
 
     c.close()
 
@@ -2145,6 +2305,7 @@ def validar_cupon():
         code=coupon["code"],
         discount_type=discount_type,
         discount_value=discount_value,
+        discount_target=discount_target,
         discount=discount,
         subtotal=subtotal,
         discounted_subtotal=discounted_subtotal,

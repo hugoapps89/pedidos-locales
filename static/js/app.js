@@ -20,8 +20,10 @@ document.addEventListener("DOMContentLoaded", () => {
     document.addEventListener("keydown",e=>{if(e.key==="Escape")closeMenu();});
   }
   const cart = [];
-let appliedCoupon = null;
-let couponDiscount = 0;
+        appliedCoupon = null;
+        couponDiscount = 0;
+        couponTarget = "products";
+let couponTarget = "products";
   const countEls = [document.getElementById("cartCount"), document.getElementById("cartBadge")].filter(Boolean);
   const itemsEl = document.getElementById("cartItems");
   const totalEl = document.getElementById("cartTotal");
@@ -62,25 +64,46 @@ function subtotal() {
 }
 
 function discountedSubtotal() {
+
+    if (couponTarget !== "products") {
+        return subtotal();
+    }
+
     return Math.max(
         0,
         subtotal() - couponDiscount
     );
+
+}
+
+function discountedDeliveryFee() {
+
+    if (couponTarget !== "delivery") {
+        return deliveryFee;
+    }
+
+    return Math.max(
+        0,
+        deliveryFee - couponDiscount
+    );
+
 }
 
 function commission() {
+
     return discountedSubtotal() * commissionRate / 100;
+
 }
 
 function grandTotal() {
+
     return (
         discountedSubtotal() +
-        deliveryFee +
+        discountedDeliveryFee() +
         commission()
     );
+
 }
-
-
 /* ================================
    CUPÓN
    ================================ */
@@ -138,13 +161,17 @@ async function applyCoupon() {
         }
 
         appliedCoupon = {
-            id: data.coupon_id,
-            code: data.code,
-            discount: Number(data.discount || 0)
-        };
+    id: data.coupon_id,
+    code: data.code,
+    discount: Number(data.discount || 0),
+    target: data.discount_target || "products"
+};
 
-        couponDiscount =
-            Number(data.discount || 0);
+couponTarget =
+    data.discount_target || "products";
+
+couponDiscount =
+    Number(data.discount || 0);
 
         couponCodeInput.value =
             data.code;
@@ -250,14 +277,13 @@ function updateDeliveryUI() {
         );
 
     if (feeEl) {
-        feeEl.textContent =
-            formatDelivery(deliveryFee);
-    }
+    feeEl.textContent =
+        formatDelivery(discountedDeliveryFee());
+}
 
-    if (checkoutFeeEl) {
-        checkoutFeeEl.textContent =
-            formatDelivery(deliveryFee);
-    }
+if (checkoutFeeEl) {
+    checkoutFeeEl.textContent =
+        formatDelivery(discountedDeliveryFee());
 }
 
 
@@ -532,7 +558,10 @@ if(itemsEl) itemsEl.addEventListener("click", e => {
         const sub=subtotal(), com=commission();
         if(checkoutSubtotal) checkoutSubtotal.textContent=money(sub);
         const checkoutDeliveryFee=document.getElementById("checkoutDeliveryFee");
-        if(checkoutDeliveryFee) checkoutDeliveryFee.textContent=money(deliveryFee);
+        if(checkoutDeliveryFee) {
+    checkoutDeliveryFee.textContent =
+        money(discountedDeliveryFee());
+}
         const checkoutCommission=document.getElementById("checkoutCommission");
         if(checkoutCommission) checkoutCommission.textContent=money(com);
         if(checkoutTotal) checkoutTotal.textContent=money(grandTotal());
@@ -562,7 +591,10 @@ if(itemsEl) itemsEl.addEventListener("click", e => {
         const sub=subtotal(), com=commission();
         if(checkoutSubtotal) checkoutSubtotal.textContent=money(sub);
         const checkoutDeliveryFee=document.getElementById("checkoutDeliveryFee");
-        if(checkoutDeliveryFee) checkoutDeliveryFee.textContent=money(deliveryFee);
+        if(checkoutDeliveryFee) {
+    checkoutDeliveryFee.textContent =
+        money(discountedDeliveryFee());
+}
         const checkoutCommission=document.getElementById("checkoutCommission");
         if(checkoutCommission) checkoutCommission.textContent=money(com);
         checkoutTotal.textContent=money(grandTotal());
