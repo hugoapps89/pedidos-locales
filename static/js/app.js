@@ -453,20 +453,55 @@ function requestCustomerLocation(forceRefresh=false) {
     const qty = cart.reduce((s,x)=>s+x.qty,0);
     countEls.forEach(el=>el.textContent=qty);
     const sub=subtotal(), com=commission(), total=grandTotal();
-const discountRow =
-  document.getElementById("couponDiscountRow");
+    const discountRow =
+      document.getElementById("couponDiscountRow");
 
-const discountDisplay =
-  document.getElementById("couponDiscountDisplay");
+    const discountDisplay =
+      document.getElementById("couponDiscountDisplay");
 
-if(discountDisplay) {
-  discountDisplay.textContent =
-    "-" + money(couponDiscount);
-}
+    const discountLabel =
+      discountRow
+        ? discountRow.querySelector("span")
+        : null;
 
-if(discountRow) {
-  discountRow.hidden = !appliedCoupon;
-}
+    let visibleCouponDiscount = 0;
+
+    if (couponTarget === "delivery") {
+
+      visibleCouponDiscount = Math.min(
+        couponDiscount,
+        deliveryFee
+      );
+
+      if (discountLabel) {
+        discountLabel.textContent =
+          "Descuento en entrega";
+      }
+
+    } else {
+
+      visibleCouponDiscount = Math.min(
+        couponDiscount,
+        subtotal()
+      );
+
+      if (discountLabel) {
+        discountLabel.textContent =
+          "Descuento";
+      }
+
+    }
+
+    if (discountDisplay) {
+      discountDisplay.textContent =
+        "-" + money(visibleCouponDiscount);
+    }
+
+    if (discountRow) {
+      discountRow.hidden =
+        !appliedCoupon ||
+        visibleCouponDiscount <= 0;
+    }
     if(subtotalEl) subtotalEl.textContent=money(sub);
     const commissionEl=document.getElementById("commissionDisplay");
     if(commissionEl) commissionEl.textContent=money(com);
