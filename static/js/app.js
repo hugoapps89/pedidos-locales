@@ -466,42 +466,44 @@ function requestCustomerLocation(forceRefresh=false) {
 
     let visibleCouponDiscount = 0;
 
-    if (couponTarget === "delivery") {
+if (couponTarget === "delivery") {
 
-      visibleCouponDiscount = Math.min(
-        couponDiscount,
+    visibleCouponDiscount = Math.min(
+        couponDiscount > 0
+            ? couponDiscount
+            : deliveryFee,
         deliveryFee
-      );
+    );
 
-      if (discountLabel) {
+    if (discountLabel) {
         discountLabel.textContent =
-          "Descuento en entrega";
-      }
+            "Descuento en entrega";
+    }
 
-    } else {
+} else {
 
-      visibleCouponDiscount = Math.min(
+    visibleCouponDiscount = Math.min(
         couponDiscount,
         subtotal()
-      );
+    );
 
-      if (discountLabel) {
+    if (discountLabel) {
         discountLabel.textContent =
-          "Descuento";
-      }
-
+            "Descuento";
     }
 
-    if (discountDisplay) {
-      discountDisplay.textContent =
+}
+
+if (discountDisplay) {
+    discountDisplay.textContent =
         "-" + money(visibleCouponDiscount);
-    }
+}
 
-    if (discountRow) {
-      discountRow.hidden =
+if (discountRow) {
+    discountRow.hidden =
         !appliedCoupon ||
         visibleCouponDiscount <= 0;
-    }
+}
     if(subtotalEl) subtotalEl.textContent=money(sub);
     const commissionEl=document.getElementById("commissionDisplay");
     if(commissionEl) commissionEl.textContent=money(com);
