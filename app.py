@@ -2039,7 +2039,314 @@ def admin_coupon_create():
             "error"
         )
         return redirect(url_for("admin_coupons"))
+# ---------------- EDITAR CUPÓN ----------------
+@app.post("/admin/cupones/editar/<int:coupon_id>")
+@auth
+def admin_coupon_edit(coupon_id):
 
+    code = request.form.get("code", "").strip().upper()
+
+    discount_type = request.form.get(
+        "discount_type",
+        "percent"
+    )
+
+    discount_target = request.form.get(
+        "discount_target",
+        "products"
+    ).strip().lower()
+
+    try:
+        discount_value = float(
+            request.form.get("discount_value", "0")
+        )
+    except ValueError:
+        discount_value = 0
+
+    business_id = request.form.get("business_id") or None
+
+    try:
+        minimum_purchase = float(
+            request.form.get("minimum_purchase", "0")
+        )
+    except ValueError:
+        minimum_purchase = 0
+
+    start_date = request.form.get("start_date", "")
+    end_date = request.form.get("end_date", "")
+
+    max_uses_raw = request.form.get(
+        "max_uses",
+        ""
+    ).strip()
+
+    try:
+        max_uses = (
+            int(max_uses_raw)
+            if max_uses_raw
+            else None
+        )
+    except ValueError:
+        max_uses = None
+
+    one_per_customer = (
+        1
+        if request.form.get("one_per_customer")
+        else 0
+    )
+
+    active = (
+        1
+        if request.form.get("active")
+        else 0
+    )
+
+    # ---------------- VALIDACIONES ----------------
+
+    if not code:
+        flash(
+            "Escribe un código para el cupón.",
+            "error"
+        )
+        return redirect(
+            url_for("admin_coupons")
+        )
+
+    if discount_type not in {
+        "percent",
+        "fixed"
+    }:
+        flash(
+            "Tipo de descuento inválido.",
+            "error"
+        )
+        return redirect(
+            url_for("admin_coupons")
+        )
+
+    if discount_target not in {
+        "products",
+        "delivery"
+    }:
+        flash(
+            "Destino del descuento inválido.",
+            "error"
+        )
+        return redirect(
+            url_for("admin_coupons")
+        )
+
+    if discount_value <= 0:
+        flash(
+            "El valor del descuento debe ser mayor que cero.",
+            "error"
+        )
+        return redirect(
+            url_for("admin_coupons")
+        )
+
+    if (
+        discount_type == "percent"
+        and discount_value > 100
+    ):
+        flash(
+            "El porcentaje no puede ser mayor a 100%.",
+            "error"
+        )
+        return redirect(
+            url_for("admin_coupons")
+        )
+
+    if minimum_purchase < 0:
+        flash(
+            "La compra mínima no puede ser negativa.",
+            "error"
+        )
+        return redirect(
+            url_for("admin_coupons")
+        )
+
+    if max_uses is not None and max_uses < 1:
+        flash(
+            "El máximo de usos debe ser mayor que cero.",
+            "error"
+        )
+        return redirect(
+            url_for("admin_coupons")
+        )
+
+    if not start_date or not end_date:
+        flash(
+            "Debes indicar las fechas del cupón.",
+            "error"
+        )
+        return redirect(
+            url_for("admin_coupons")
+        )
+
+    if end_date < start_date:
+        flash(
+            "La fecha de vencimiento no puede ser anterior al inicio.",
+            "error"
+        )
+        return redirect(
+            url_for("admin_coupons")
+        )
+
+    c = db()
+
+    try:
+
+        # Verificar que exista
+        coupon = c.execute(
+            """
+            SELECT id
+            FROM coupons
+            WHERE id=?
+            """,
+            (coupon_id,)
+        ).fetchone()
+
+        if not coupon:
+            c.close()
+
+            flash(
+                "El cupón no existe.",
+                "error"
+            )
+
+            return redirect(
+                url_for("admin_coupons")
+            )
+
+        # Verificar código duplicado
+        duplicate = c.execute(
+            """
+            SELECT id
+            FROM coupons
+            WHERE code=?
+              AND id<>?
+            """,
+            (
+                code,
+                coupon_id
+            )
+        ).fetchone()
+
+        if duplicate:
+            c.close()
+
+            flash(
+                "Ese código de cupón ya existe.",
+                "error"
+            )
+
+            return redirect(
+                url_for("admin_coupons")
+            )
+
+        c.execute(
+            """
+            UPDATE coupons
+            SET
+                code=?,
+                discount_type=?,
+                discount_value=?,
+                discount_target=?,
+                business_id=?,
+                minimum_purchase=?,
+                start_date=?,
+                end_date=?,
+                max_uses=?,
+                one_per_customer=?,
+                active=?
+            WHERE id=?
+            """,
+            (
+                code,
+                discount_type,
+                discount_value,
+                discount_target,
+                business_id,
+                minimum_purchase,
+                start_date,
+                end_date,
+                max_uses,
+                one_per_customer,
+                active,
+                coupon_id
+            )
+        )
+
+        c.commit()
+        c.close()
+
+    except Exception:
+        c.rollback()
+        c.close()
+        raise
+
+    flash(
+        f"Cupón {code} actualizado correctamente.",
+        "success"
+    )
+
+    return redirect(
+        url_for("admin_coupons")
+    )
+
+
+# ---------------- ELIMINAR / DESACTIVAR CUPÓN ----------------
+@app.post("/admin/cupones/eliminar/<int:coupon_id>")
+@auth
+def admin_coupon_delete(coupon_id):
+
+    c = db()
+
+    coupon = c.execute(
+        """
+        SELECT code
+        FROM coupons
+        WHERE id=?
+        """,
+        (coupon_id,)
+    ).fetchone()
+
+    if not coupon:
+        c.close()
+
+        flash(
+            "El cupón no existe.",
+            "error"
+        )
+
+        return redirect(
+            url_for("admin_coupons")
+        )
+
+    # No eliminamos físicamente el registro.
+    # Lo desactivamos para conservar el historial
+    # de coupon_uses.
+    c.execute(
+        """
+        UPDATE coupons
+        SET active=0
+        WHERE id=?
+        """,
+        (coupon_id,)
+    )
+
+    c.commit()
+    c.close()
+
+    flash(
+        f"Cupón {coupon['code']} desactivado correctamente.",
+        "success"
+    )
+
+    return redirect(
+        url_for("admin_coupons")
+    )
     try:
         discount_value = float(
             request.form.get("discount_value", "0")

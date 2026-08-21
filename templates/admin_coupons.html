@@ -138,23 +138,58 @@
                 </div>
 
 
-                <div>
+                <div class="coupon-status-actions">
 
-                    {% if coupon.active %}
+    <div>
+        {% if coupon.active %}
+            <span class="badge coupon-active">
+                Activo
+            </span>
+        {% else %}
+            <span class="badge coupon-inactive">
+                Inactivo
+            </span>
+        {% endif %}
+    </div>
 
-                        <span class="badge coupon-active">
-                            Activo
-                        </span>
+    <div class="coupon-actions">
 
-                    {% else %}
+        <button
+            type="button"
+            class="btn outline coupon-edit-btn"
+            onclick="editCoupon({{ coupon.id }})"
+        >
+            ✏️ Editar
+        </button>
 
-                        <span class="badge coupon-inactive">
-                            Inactivo
-                        </span>
+        {% if coupon.active %}
 
-                    {% endif %}
+        <form
+            method="post"
+            action="{{ url_for('admin_coupon_delete', coupon_id=coupon.id) }}"
+            onsubmit="return confirm(
+                '¿Seguro que deseas desactivar el cupón {{ coupon.code }}?'
+            );"
+        >
+            <input
+                type="hidden"
+                name="csrf_token"
+                value="{{ csrf_token() }}"
+            >
 
-                </div>
+            <button
+                type="submit"
+                class="btn outline coupon-delete-btn"
+            >
+                🗑️ Eliminar
+            </button>
+        </form>
+
+        {% endif %}
+
+    </div>
+
+</div>
 
             </div>
 
@@ -178,7 +213,26 @@
 </main>
 
 
-
+<script>
+const couponsData = {
+{% for coupon in coupons %}
+    "{{ coupon.id }}": {
+        id: {{ coupon.id }},
+        code: {{ coupon.code|tojson }},
+        discount_type: {{ coupon.discount_type|tojson }},
+        discount_value: {{ coupon.discount_value|float }},
+        discount_target: {{ (coupon.discount_target or 'products')|tojson }},
+        business_id: {{ coupon.business_id|tojson }},
+        minimum_purchase: {{ (coupon.minimum_purchase or 0)|float }},
+        start_date: {{ coupon.start_date|tojson }},
+        end_date: {{ coupon.end_date|tojson }},
+        max_uses: {{ coupon.max_uses|tojson }},
+        one_per_customer: {{ coupon.one_per_customer|int }},
+        active: {{ coupon.active|int }}
+    }{% if not loop.last %},{% endif %}
+{% endfor %}
+};
+</script>
 <!-- MODAL NUEVO CUPÓN -->
 
 <div
@@ -216,9 +270,10 @@
 
 
         <form
-            method="post"
-            action="{{ url_for('admin_coupon_create') }}"
-        >
+    id="couponForm"
+    method="post"
+    action="{{ url_for('admin_coupon_create') }}"
+>
 <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
 
             <div class="coupon-grid">
@@ -399,7 +454,21 @@
                 </span>
 
             </label>
+<label class="coupon-checkbox">
 
+    <input
+        type="checkbox"
+        name="active"
+        id="couponActive"
+        value="1"
+        checked
+    >
+
+    <span>
+        Cupón activo
+    </span>
+
+</label>
 
             <div class="coupon-form-actions">
 
@@ -655,58 +724,182 @@ function openCouponForm(){
     const modal =
         document.getElementById("couponModal");
 
+    const form =
+        document.getElementById("couponForm");
 
-    modal.hidden = false;
+    const title =
+        modal.querySelector("h2");
 
+    const eyebrow =
+        modal.querySelector(".eyebrow");
+
+    const submitButton =
+        form.querySelector(
+            'button[type="submit"]'
+        );
+
+    // Modo NUEVO
+    form.action =
+        "{{ url_for('admin_coupon_create') }}";
+
+    title.textContent =
+        "Crear cupón";
+
+    eyebrow.textContent =
+        "NUEVA PROMOCIÓN";
+
+    submitButton.textContent =
+        "🎟️ Crear cupón";
+
+    form.reset();
+
+    document.getElementById(
+        "couponActive"
+    ).checked = true;
+
+    document.getElementById(
+        "discountTarget"
+    ).value = "products";
+
+    // Fecha de inicio
+    const today = new Date();
 
     const start =
-        modal.querySelector(
-            '[name="start_date"]'
-        );
+        today.toISOString()
+            .split("T")[0];
 
+    // Fecha de vencimiento: 30 días
+    today.setDate(
+        today.getDate() + 30
+    );
 
     const end =
-        modal.querySelector(
-            '[name="end_date"]'
+        today.toISOString()
+            .split("T")[0];
+
+    form.querySelector(
+        '[name="start_date"]'
+    ).value = start;
+
+    form.querySelector(
+        '[name="end_date"]'
+    ).value = end;
+
+    modal.hidden = false;
+}
+
+
+function editCoupon(id){
+
+    const coupon =
+        couponsData[String(id)];
+
+    if(!coupon){
+
+        alert(
+            "No se encontró la información del cupón."
         );
 
-
-    if(start && !start.value){
-
-        const today =
-            new Date();
-
-
-        const iso =
-            today
-                .toISOString()
-                .split("T")[0];
-
-
-        start.value =
-            iso;
-
+        return;
     }
 
+    const modal =
+        document.getElementById("couponModal");
 
-    if(end && !end.value){
+    const form =
+        document.getElementById("couponForm");
 
-        const today =
-            new Date();
+    const title =
+        modal.querySelector("h2");
 
+    const eyebrow =
+        modal.querySelector(".eyebrow");
 
-        today.setDate(
-            today.getDate() + 30
+    const submitButton =
+        form.querySelector(
+            'button[type="submit"]'
         );
 
+    // Cambiar a modo EDITAR
+    form.action =
+        `/admin/cupones/editar/${coupon.id}`;
 
-        end.value =
-            today
-                .toISOString()
-                .split("T")[0];
+    title.textContent =
+        "Editar cupón";
 
-    }
+    eyebrow.textContent =
+        "EDITAR PROMOCIÓN";
 
+    submitButton.textContent =
+        "💾 Guardar cambios";
+
+    // Código
+    form.querySelector(
+        '[name="code"]'
+    ).value =
+        coupon.code || "";
+
+    // Tipo
+    form.querySelector(
+        '[name="discount_type"]'
+    ).value =
+        coupon.discount_type || "percent";
+
+    // Destino
+    document.getElementById(
+        "discountTarget"
+    ).value =
+        coupon.discount_target || "products";
+
+    // Valor
+    form.querySelector(
+        '[name="discount_value"]'
+    ).value =
+        coupon.discount_value || "";
+
+    // Negocio
+    form.querySelector(
+        '[name="business_id"]'
+    ).value =
+        coupon.business_id || "";
+
+    // Compra mínima
+    form.querySelector(
+        '[name="minimum_purchase"]'
+    ).value =
+        coupon.minimum_purchase || 0;
+
+    // Máximo de usos
+    form.querySelector(
+        '[name="max_uses"]'
+    ).value =
+        coupon.max_uses || "";
+
+    // Fecha de inicio
+    form.querySelector(
+        '[name="start_date"]'
+    ).value =
+        coupon.start_date || "";
+
+    // Fecha de vencimiento
+    form.querySelector(
+        '[name="end_date"]'
+    ).value =
+        coupon.end_date || "";
+
+    // Una vez por cliente
+    form.querySelector(
+        '[name="one_per_customer"]'
+    ).checked =
+        Number(coupon.one_per_customer) === 1;
+
+    // Activo
+    document.getElementById(
+        "couponActive"
+    ).checked =
+        Number(coupon.active) === 1;
+
+    modal.hidden = false;
 }
 
 
