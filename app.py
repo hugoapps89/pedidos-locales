@@ -2276,9 +2276,7 @@ def validar_cupon():
     ).strip().lower()
 
     if discount_target == "delivery":
-        # El descuento de entrega se calculará
-        # cuando conozcamos el costo real del envío.
-        discount = 0.0
+        discount = discount_value
         discounted_subtotal = subtotal
 
     else:
