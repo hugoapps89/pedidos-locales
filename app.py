@@ -2165,6 +2165,12 @@ def admin_coupon_create():
 @app.get("/api/cupon/validar")
 def validar_cupon():
 
+    if not session.get("user_logged"):
+        return jsonify(
+            ok=False,
+            error="Debes iniciar sesión para utilizar cupones."
+        ), 401
+
     code = request.args.get("code", "").strip().upper()
 
     try:
