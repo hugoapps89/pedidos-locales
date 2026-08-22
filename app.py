@@ -1191,8 +1191,8 @@ def crear_pedido():
     coupon_target = "products"
 
     requested_coupon = str(
-        data.get("coupon_code", "")
-    ).strip().upper()
+    data.get("coupon_code") or ""
+).strip().upper()
 
     if requested_coupon:
 
